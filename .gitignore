@@ -1,0 +1,13 @@
+.DS_Store
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+
+# Local design references / generated previews
+design-preview/
+example .png
+ui-ux-pro-max-skill-main 2/
