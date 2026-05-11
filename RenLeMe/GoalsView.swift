@@ -20,7 +20,7 @@ struct GoalsView: View {
 
                     if goals.isEmpty {
                         PunchyCard(fill: .punchYellow) {
-                            EmptyStateView(title: "还没有目标", message: "可以从一个小目标开始，比如少买一件衣服，或拿回一小时。", systemImage: "target")
+                            EmptyStateView(title: "还没有目标", message: "", systemImage: "target")
                         }
                     } else {
                         VStack(spacing: 14) {
@@ -89,17 +89,24 @@ struct GoalsView: View {
                     Text("Goals")
                         .font(.rounded(42, weight: .black))
                         .foregroundStyle(Color.ink)
-                    Text("把忍住的价值，投向真正想要的生活。")
-                        .font(.rounded(17, weight: .black))
-                        .foregroundStyle(Color.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
 
-                MascotMomentView(moment: .idle, size: 76)
+                AnimatedXiaoRenView(
+                    color: Color(red: 1.0, green: 0.949, blue: 0.839),
+                    expression: goals.contains(where: { goalProgress(for: $0) > 0 }) ? .sparkle : .curious,
+                    size: 76,
+                    reduceMotion: reduceMotion
+                )
             }
         }
+    }
+
+    private func goalProgress(for goal: Goal) -> Double {
+        let targeted = StatsCalculator.currentValue(for: goal, records: records)
+        let current = targeted > 0 ? targeted : StatsCalculator.totalValue(for: goal.type, records: records)
+        return current / max(goal.targetValue, 1)
     }
 
     private func showGoalCelebration(_ moment: MascotMoment) {
@@ -176,7 +183,7 @@ private struct GoalDetailCard: View {
                                 }
                             }
 
-                            Text(isCompleted ? "目标达成，点一下庆祝" : goal.type.assetTitle)
+                            Text(isCompleted ? "已完成" : goal.type.assetTitle)
                                 .font(.rounded(14, weight: .black))
                                 .foregroundStyle(textColor.opacity(0.72))
                         }
@@ -190,16 +197,14 @@ private struct GoalDetailCard: View {
                                 PropIconView(template: PropTemplate.defaultTemplate(for: goal.type), size: 78)
                             }
 
-                            if isCompleted {
-                                AnimatedXiaoRenView(
-                                    color: goal.type == .time ? .punchGreen : Color(red: 1.0, green: 0.949, blue: 0.839),
-                                    expression: .proud,
-                                    size: 52,
-                                    reduceMotion: reduceMotion
-                                )
-                                .offset(x: 8, y: 10)
-                                .scaleEffect(pulse ? 1.08 : 0.94)
-                            }
+                            AnimatedXiaoRenView(
+                                color: goalMascotColor,
+                                expression: goalMascotExpression,
+                                size: 54,
+                                reduceMotion: reduceMotion
+                            )
+                            .offset(x: 8, y: 10)
+                            .scaleEffect(isCompleted && pulse ? 1.08 : 0.94)
                         }
                     }
 
@@ -251,6 +256,30 @@ private struct GoalDetailCard: View {
     private var textColor: Color {
         goal.type == .time ? .punchBlack : .white
     }
+
+    private var goalSeed: Int {
+        goal.title.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+    }
+
+    private var goalMascotExpression: DynamicMascotExpression {
+        if isCompleted { return .celebrate }
+        if progress >= 0.66 { return .proud }
+        if progress > 0 {
+            return [.sparkle, .relieved, .hello][goalSeed % 3]
+        }
+        return [.curious, .thinking, .sparkle][goalSeed % 3]
+    }
+
+    private var goalMascotColor: Color {
+        switch goal.type {
+        case .money:
+            return Color(red: 1.0, green: 0.949, blue: 0.839)
+        case .food:
+            return .punchGreen
+        case .time:
+            return .punchPink
+        }
+    }
 }
 
 private struct AddGoalView: View {
@@ -282,9 +311,6 @@ private struct AddGoalView: View {
                                 Text("New goal")
                                     .font(.rounded(38, weight: .black))
                                     .foregroundStyle(type == .time ? Color.punchBlack : .white)
-                                Text(type.gentleHint)
-                                    .font(.rounded(15, weight: .black))
-                                    .foregroundStyle((type == .time ? Color.punchBlack : .white).opacity(0.76))
                             }
                             Spacer()
                             MascotMomentView(moment: .idle, size: 74)
@@ -418,9 +444,6 @@ struct EditGoalView: View {
                                 Text("Edit goal")
                                     .font(.rounded(38, weight: .black))
                                     .foregroundStyle(type == .time ? Color.punchBlack : .white)
-                                Text("目标可以调整，方向不用一次就完美。")
-                                    .font(.rounded(15, weight: .black))
-                                    .foregroundStyle((type == .time ? Color.punchBlack : .white).opacity(0.76))
                             }
                             Spacer()
                             AnimatedXiaoRenView(color: type.v2MascotColor, expression: .thinking, size: 74)

@@ -42,25 +42,25 @@ struct ProfileView: View {
                 title: "第一次忍住",
                 iconKey: .badge,
                 unlocked: records.contains { $0.status == .resisted },
-                message: "第一次把冲动停下来，很重要。"
+                message: "已点亮"
             ),
             AchievementBadge(
                 title: "连续记录",
                 iconKey: .calendar,
                 unlocked: currentStreak >= 3 || weekRecords.count >= 3,
-                message: "节奏已经出现了，小忍记得很清楚。"
+                message: "已点亮"
             ),
             AchievementBadge(
                 title: "拿回 5 小时",
                 iconKey: .chart,
                 unlocked: StatsCalculator.totalValue(for: .time, records: records) >= 300,
-                message: "这些时间，本来就该回到你手里。"
+                message: "已点亮"
             ),
             AchievementBadge(
                 title: "冷静后仍选择",
                 iconKey: .coolBox,
                 unlocked: records.contains { $0.enteredCooldown && $0.status == .resisted },
-                message: "你没有急着裁判自己，而是等了一下。"
+                message: "已点亮"
             )
         ]
     }
@@ -99,19 +99,15 @@ struct ProfileView: View {
                         .font(.rounded(42, weight: .black))
                         .foregroundStyle(Color.white)
 
-                    Text("复盘，不审判")
+                    Text("复盘")
                         .font(.rounded(24, weight: .black))
                         .foregroundStyle(Color.white)
 
-                    Text(reflectionText)
-                        .font(.rounded(15, weight: .bold))
-                        .foregroundStyle(Color.white.opacity(0.78))
-                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
 
-                MascotMomentView(moment: .reviewCalm, size: 82)
+                AssetMascotSticker(mood: .relieved, size: 78)
             }
         }
     }
@@ -145,8 +141,8 @@ struct ProfileView: View {
                     showPendingFeedback(
                         currentStreak > 0 ? .resistedSuccess : .reviewCalm,
                         message: currentStreak > 0
-                            ? "连续 \(currentStreak) 天看见并处理冲动，这不是小事。"
-                            : "先看见自己的节奏，就已经是在往前走。"
+                            ? "连续 \(currentStreak) 天"
+                            : "开始复盘"
                     )
                 }
 
@@ -167,14 +163,16 @@ struct ProfileView: View {
                     .foregroundStyle(Color.ink)
 
                 HStack(spacing: 10) {
-                    MascotMomentView(moment: unlockedBadgeCount > 0 ? .resistedSuccess : .idle, size: 58)
+                    AnimatedXiaoRenView(
+                        color: unlockedBadgeCount > 0 ? .punchGreen : Color(red: 1.0, green: 0.949, blue: 0.839),
+                        expression: unlockedBadgeCount > 0 ? .celebrate : .curious,
+                        size: 58,
+                        reduceMotion: reduceMotion
+                    )
                     VStack(alignment: .leading, spacing: 3) {
                         Text("已点亮 \(unlockedBadgeCount)/\(achievementBadges.count)")
                             .font(.rounded(18, weight: .black))
                             .foregroundStyle(Color.ink)
-                        Text(unlockedBadgeCount > 0 ? "每个小选择，都算数。" : "第一枚会从一次小小忍住开始。")
-                            .font(.rounded(13, weight: .bold))
-                            .foregroundStyle(Color.secondaryInk)
                     }
                     Spacer()
                 }
@@ -189,7 +187,7 @@ struct ProfileView: View {
                                 badge.unlocked ? .resistedSuccess : .reviewCalm,
                                 message: badge.unlocked
                                     ? badge.message
-                                    : "这枚还没点亮。下一次记录，也许就会靠近一点。"
+                                    : "未点亮"
                             )
                         }
                     }
@@ -206,7 +204,7 @@ struct ProfileView: View {
                     .foregroundStyle(Color.ink)
 
                 if pendingRecords.isEmpty {
-                    EmptyStateView(title: "冷静箱是空的", message: "等一下再决定，也是一种决定。", systemImage: "archivebox")
+                    EmptyStateView(title: "冷静箱是空的", message: "", systemImage: "archivebox")
                 } else {
                     VStack(spacing: 12) {
                         ForEach(pendingRecords) { record in
@@ -233,10 +231,6 @@ struct ProfileView: View {
                             .font(.rounded(18, weight: .black))
                             .foregroundStyle(Color.ink)
 
-                        Text("小忍带你快速回顾记录、冷静箱和忍耐资产。")
-                            .font(.rounded(13, weight: .bold))
-                            .foregroundStyle(Color.secondaryInk)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
 
                     Spacer()
@@ -249,18 +243,6 @@ struct ProfileView: View {
             .buttonStyle(PressableScaleStyle())
             .accessibilityLabel("再看一遍上手引导")
         }
-    }
-
-    private var reflectionText: String {
-        if records.isEmpty {
-            return "下一次冲动来临时，先放这里。不是要立刻变得完美，只是多给自己一次选择。"
-        }
-
-        if let reason = StatsCalculator.mostCommonReason(in: records) {
-            return "最近常出现的是「\(reason)」。也许它不只是想买、想吃或想逃开，也可能是在提醒你：这阵子有点累。"
-        }
-
-        return "没关系，至少你看见了它。下次再遇到，我们会更早认出来。"
     }
 
     private func showPendingFeedback(_ moment: MascotMoment, message: String? = nil) {
@@ -507,6 +489,7 @@ private struct PendingRecordRow: View {
                     record.status = .resisted
                     record.resolvedAt = .now
                     record.cooldownUntil = nil
+                    AppHaptics.success()
                     onResolve(.resistedSuccess)
                 } label: {
                     Text("我忍住了")
@@ -523,6 +506,7 @@ private struct PendingRecordRow: View {
                     record.status = .gaveIn
                     record.resolvedAt = .now
                     record.cooldownUntil = nil
+                    AppHaptics.lightTap()
                     onResolve(.gaveInSaved)
                 } label: {
                     Text("我还是做了")

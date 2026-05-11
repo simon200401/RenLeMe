@@ -73,14 +73,6 @@ enum ResistType: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    var gentleHint: String {
-        switch self {
-        case .money: "这是需要，还是此刻想被安慰？"
-        case .food: "先等等，身体可能只是有点累。"
-        case .time: "这段时间，要交给它，还是留给自己？"
-        }
-    }
-
     var cooldownSeconds: TimeInterval {
         switch self {
         case .money: 24 * 60 * 60
@@ -107,7 +99,7 @@ enum ResistStatus: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .resisted: "忍住了"
         case .pending: "冷静箱"
-        case .gaveIn: "观察中"
+        case .gaveIn: "没忍住"
         }
     }
 }

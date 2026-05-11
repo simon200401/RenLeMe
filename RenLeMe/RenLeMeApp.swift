@@ -211,7 +211,7 @@ struct AppRootView: View {
             createdAt: calendar.date(byAdding: .minute, value: -35, to: now) ?? now,
             cooldownUntil: calendar.date(byAdding: .minute, value: 15, to: now),
             enteredCooldown: true,
-            note: "先放一下，等做完手头的事再看。",
+            note: "稍后再看",
             propTemplateId: "time.shortVideo",
             propIconKey: .shortVideo
         ))
@@ -224,7 +224,7 @@ struct AppRootView: View {
             reason: "奖励自己",
             createdAt: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
             resolvedAt: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
-            note: "先存进相机基金。",
+            note: "相机基金",
             goalId: cameraGoalId,
             propTemplateId: "money.camera",
             propIconKey: .camera
@@ -238,7 +238,7 @@ struct AppRootView: View {
             reason: "压力大",
             createdAt: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
             resolvedAt: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
-            note: "不是失败，记下来看看规律。",
+            note: "已记录",
             propTemplateId: "food.takeout",
             propIconKey: .takeout
         ))

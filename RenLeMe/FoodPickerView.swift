@@ -29,9 +29,6 @@ struct FoodPickerView: View {
                                 Text("Food")
                                     .font(.rounded(42, weight: .black))
                                     .foregroundStyle(Color.white)
-                                Text("选一个可信来源，再填份量。")
-                                    .font(.rounded(16, weight: .black))
-                                    .foregroundStyle(Color.white.opacity(0.78))
                             }
 
                             Spacer()
@@ -43,7 +40,7 @@ struct FoodPickerView: View {
                     if filteredFoods.isEmpty {
                         PunchyCard(fill: .cardBackground) {
                             VStack(alignment: .leading, spacing: 12) {
-                                EmptyStateView(title: "本地库里还没有这个食物", message: "可以先用食物模板的默认热量，或者之后把它补充到本地数据库。", systemImage: "tray")
+                                EmptyStateView(title: "本地库暂无结果", message: "", systemImage: "tray")
                                 StatusChip(title: "本地库 · 轻量记录", fill: .punchBlack)
                             }
                         }
@@ -61,10 +58,6 @@ struct FoodPickerView: View {
                         }
                     }
 
-                    Text("热量来自本地食物库或已确认来源。找不到的食物不会自动计入热量资产。")
-                        .font(.rounded(13, weight: .bold))
-                        .foregroundStyle(Color.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(18)
             }

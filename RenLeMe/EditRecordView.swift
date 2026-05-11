@@ -70,9 +70,6 @@ struct EditRecordView: View {
                                 Text("Edit")
                                     .font(.rounded(42, weight: .black))
                                     .foregroundStyle(record.type == .time ? Color.punchBlack : .white)
-                                Text(record.type.gentleHint)
-                                    .font(.rounded(15, weight: .black))
-                                    .foregroundStyle((record.type == .time ? Color.punchBlack : .white).opacity(0.76))
                             }
                             Spacer()
                             MascotMomentView(moment: record.status.mascotMoment, size: 78)

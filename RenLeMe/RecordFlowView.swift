@@ -33,13 +33,14 @@ struct RecordFlowView: View {
     @State private var selectedGoalId: UUID?
     @State private var selectedTemplate: PropTemplate?
     @State private var isCustomPropSelected = false
-    @State private var isPropPickerExpanded = true
+    @State private var isPropPickerExpanded = false
     @State private var customImage: UIImage?
     @State private var customImageSource: CustomImageSource?
     @State private var isShowingCustomImageOptions = false
     @State private var selectedFood: FoodNutritionItem?
     @State private var servingGramsText = ""
     @State private var completionMoment: MascotMoment?
+    @State private var introExpression: DynamicMascotExpression = .thinking
     @State private var isShowingFoodPicker = false
 
     private var filteredGoals: [Goal] {
@@ -112,7 +113,7 @@ struct RecordFlowView: View {
             selectedGoalId = nil
             selectedTemplate = nil
             isCustomPropSelected = false
-            isPropPickerExpanded = true
+            isPropPickerExpanded = false
             customImage = nil
             customImageSource = nil
             selectedFood = nil
@@ -120,6 +121,7 @@ struct RecordFlowView: View {
             title = ""
             valueText = ""
             completionMoment = nil
+            pulseIntro(.thinking)
         }
         .sheet(isPresented: $isShowingFoodPicker) {
             NavigationStack {
@@ -152,8 +154,6 @@ struct RecordFlowView: View {
             }
 
             Button("先不加图片", role: .cancel) {}
-        } message: {
-            Text("也可以不加图片，系统会先用一个通用道具图标。")
         }
     }
 
@@ -165,19 +165,16 @@ struct RecordFlowView: View {
                         .font(.rounded(42, weight: .black))
                         .foregroundStyle(selectedType == .time ? Color.punchBlack : .white)
 
-                    Text("先记下来，不急着决定。")
-                        .font(.rounded(24, weight: .black))
-                        .foregroundStyle(selectedType == .time ? Color.punchBlack : .white)
-
-                    Text(selectedType.gentleHint)
-                        .font(.rounded(15, weight: .bold))
-                        .foregroundStyle((selectedType == .time ? Color.punchBlack : .white).opacity(0.76))
-                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
 
-                TypeMascotBadge(type: selectedType, size: 86)
+                AnimatedXiaoRenView(
+                    color: selectedType.v2MascotColor,
+                    expression: introExpression,
+                    size: 86,
+                    reduceMotion: reduceMotion
+                )
             }
         }
     }
@@ -193,11 +190,13 @@ struct RecordFlowView: View {
                     ForEach(ResistType.allCases) { type in
                         Button {
                             selectedType = type
+                            pulseIntro(.sparkle)
                         } label: {
                             VStack(spacing: 8) {
                                 TypeMascotBadge(type: type, size: 56)
                                 Text(type.title)
                                     .font(.rounded(15, weight: .black))
+                                    .foregroundStyle(Color.punchBlack)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -245,29 +244,31 @@ struct RecordFlowView: View {
                 }
                 .buttonStyle(PressableScaleStyle())
 
+                Button {
+                    toggleCustomProp()
+                    pulseIntro(.curious)
+                } label: {
+                    CustomPropCard(type: selectedType, selectedImage: customImage, isSelected: isCustomPropSelected)
+                }
+                .buttonStyle(PressableScaleStyle())
+                .accessibilityLabel("自选道具")
+
+                if isCustomPropSelected {
+                    customPropControls
+                }
+
                 if isPropPickerExpanded {
                     LazyVGrid(columns: propColumns, spacing: 10) {
-                        Button {
-                            toggleCustomProp()
-                        } label: {
-                            CustomPropCard(type: selectedType, selectedImage: customImage, isSelected: isCustomPropSelected)
-                        }
-                        .buttonStyle(PressableScaleStyle())
-                        .accessibilityLabel("自选道具")
-
                         ForEach(PropTemplate.templates(for: selectedType)) { template in
                             Button {
                                 selectTemplate(template)
+                                pulseIntro(selectedTemplate?.id == template.id ? .curious : .sparkle)
                             } label: {
                                 PropCard(template: template, isSelected: selectedTemplate?.id == template.id)
                             }
                             .buttonStyle(PressableScaleStyle())
                             .accessibilityLabel("选择\(template.title)")
                         }
-                    }
-
-                    if isCustomPropSelected {
-                        customPropControls
                     }
                 }
             }
@@ -288,7 +289,7 @@ struct RecordFlowView: View {
             return "\(selectedTemplate.title) · 再点可取消"
         }
 
-        return "没有合适的就选自选"
+        return "自选"
     }
 
     private var customPropControls: some View {
@@ -433,7 +434,7 @@ struct RecordFlowView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("也可以从数据库选择食物")
+                    Text("本地食物库")
                     .font(.rounded(15, weight: .black))
                     .foregroundStyle(Color.fieldLabelInk)
 
@@ -520,7 +521,7 @@ struct RecordFlowView: View {
                 Button {
                     save(status: .resisted)
                 } label: {
-                    DecisionButtonLabel(title: "我忍住了", subtitle: "这次你给自己留了点余地", systemImage: "checkmark.circle.fill", tint: .punchGreen, fill: .punchBlack, isDark: true)
+                    DecisionButtonLabel(title: "我忍住了", subtitle: "", systemImage: "checkmark.circle.fill", tint: .punchGreen, fill: .punchBlack, isDark: true)
                 }
                 .buttonStyle(PressableScaleStyle())
                 .disabled(!canSave)
@@ -529,7 +530,7 @@ struct RecordFlowView: View {
                 Button {
                     save(status: .pending)
                 } label: {
-                    DecisionButtonLabel(title: "先放进冷静箱", subtitle: "现在不急着决定", systemImage: "archivebox.fill", tint: .punchYellow, fill: Color.softBlockColor(for: selectedType))
+                    DecisionButtonLabel(title: "先放进冷静箱", subtitle: "", systemImage: "archivebox.fill", tint: .punchYellow, fill: Color.softBlockColor(for: selectedType))
                 }
                 .buttonStyle(PressableScaleStyle())
                 .disabled(!canSave)
@@ -538,7 +539,7 @@ struct RecordFlowView: View {
                 Button {
                     save(status: .gaveIn)
                 } label: {
-                    DecisionButtonLabel(title: "我还是做了", subtitle: "它不是失败，只是一条线索", systemImage: "eye.fill", tint: .secondaryInk, fill: .cream)
+                    DecisionButtonLabel(title: "我还是做了", subtitle: "", systemImage: "eye.fill", tint: .secondaryInk, fill: .cream)
                 }
                 .buttonStyle(PressableScaleStyle())
                 .disabled(!canSave)
@@ -573,10 +574,7 @@ struct RecordFlowView: View {
 
     private var selectedFoodDetailText: String {
         guard let selectedFood else {
-            if let selectedTemplate {
-                return "\(selectedTemplate.defaultValueText)，也可以用数据库覆盖。"
-            }
-            return "选择模板会给出建议热量；数据库结果需要确认份量。"
+            return selectedTemplate?.defaultValueText ?? "kcal / 100g"
         }
 
         var parts = [
@@ -592,6 +590,13 @@ struct RecordFlowView: View {
     }
 
     private func save(status: ResistStatus) {
+        UIApplication.shared.dismissKeyboard()
+        if status == .resisted {
+            AppHaptics.success()
+        } else {
+            AppHaptics.lightTap()
+        }
+
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedAt = status == .pending ? nil : Date()
         let cooldownUntil = status == .pending ? Date().addingTimeInterval(selectedType.cooldownSeconds) : nil
@@ -664,7 +669,7 @@ struct RecordFlowView: View {
         selectedGoalId = nil
         selectedTemplate = nil
         isCustomPropSelected = false
-        isPropPickerExpanded = true
+        isPropPickerExpanded = false
         customImage = nil
         customImageSource = nil
         selectedFood = nil
@@ -678,7 +683,7 @@ struct RecordFlowView: View {
                 title = ""
             }
             valueText = ""
-            isPropPickerExpanded = true
+            isPropPickerExpanded = false
             return
         }
 
@@ -723,6 +728,7 @@ struct RecordFlowView: View {
             title = ""
         }
         isShowingCustomImageOptions = true
+        pulseIntro(.curious)
     }
 
     private func openCustomImageSource(_ source: CustomImageSource) {
@@ -737,6 +743,23 @@ struct RecordFlowView: View {
         case .resisted: .resistedSuccess
         case .pending: .coolingSaved
         case .gaveIn: .gaveInSaved
+        }
+    }
+
+    private func pulseIntro(_ expression: DynamicMascotExpression) {
+        if reduceMotion {
+            introExpression = expression
+            return
+        }
+
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.62)) {
+            introExpression = expression
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            withAnimation(.easeOut(duration: 0.22)) {
+                introExpression = .thinking
+            }
         }
     }
 
@@ -778,9 +801,11 @@ private struct DecisionButtonLabel: View {
                 Text(title)
                     .font(.rounded(18, weight: .black))
                     .foregroundStyle(isDark ? .white : .ink)
-                Text(subtitle)
-                    .font(.rounded(12, weight: .bold))
-                    .foregroundStyle(isDark ? .white.opacity(0.78) : .secondaryInk)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.rounded(12, weight: .bold))
+                        .foregroundStyle(isDark ? .white.opacity(0.78) : .secondaryInk)
+                }
             }
 
             Spacer()

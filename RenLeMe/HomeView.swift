@@ -84,14 +84,16 @@ struct HomeView: View {
                             .font(.rounded(30, weight: .black))
                             .foregroundStyle(Color.punchBlack)
 
-                        Text("今天先把选择权拿回来。")
-                            .font(.rounded(16, weight: .bold))
-                            .foregroundStyle(Color.secondaryInk)
                     }
 
                     Spacer()
 
-                    MascotMomentView(moment: todayCount > 0 ? .resistedSuccess : .idle, size: 72)
+                    AnimatedXiaoRenView(
+                        color: todayCount > 0 ? Color.punchGreen : Color(red: 1.0, green: 0.949, blue: 0.839),
+                        expression: todayCount > 0 ? .celebrate : .hello,
+                        size: 72,
+                        reduceMotion: reduceMotion
+                    )
                 }
 
                 WeekDotRow(completedWeekdays: completedWeekdays, activeColor: .punchBlack)
@@ -106,10 +108,10 @@ struct HomeView: View {
                 .foregroundStyle(Color.punchBlack)
 
             VStack(spacing: 12) {
-                AssetBlockCard(type: .money, value: assets.money.moneyString, subtitle: "省下来的冲动消费")
+                AssetBlockCard(type: .money, value: assets.money.moneyString, subtitle: "")
                 HStack(spacing: 12) {
-                    AssetBlockCard(type: .food, value: assets.calories.calorieString, subtitle: "守住身体的余地")
-                    AssetBlockCard(type: .time, value: assets.minutes.displayValue(for: .time), subtitle: "留给自己的时间")
+                    AssetBlockCard(type: .food, value: assets.calories.calorieString, subtitle: "")
+                    AssetBlockCard(type: .time, value: assets.minutes.displayValue(for: .time), subtitle: "")
                 }
             }
         }
@@ -121,7 +123,7 @@ struct HomeView: View {
 
             if goals.isEmpty {
                 PunchyCard(fill: .punchYellow) {
-                    EmptyStateView(title: "还没有目标", message: "先记录一次忍住，或者到目标页设置一个想守护的方向。", systemImage: "target")
+                    EmptyStateView(title: "还没有目标", message: "", systemImage: "target")
                 }
             } else {
                 VStack(spacing: 12) {
@@ -157,7 +159,7 @@ struct HomeView: View {
 
             if recentRecords.isEmpty {
                 PunchyCard(fill: .cardBackground) {
-                    EmptyStateView(title: "还没有记录", message: "下一次冲动来临时，先把它放到这里。", systemImage: "tray")
+                    EmptyStateView(title: "还没有记录", message: "", systemImage: "tray")
                 }
             } else {
                 VStack(spacing: 10) {
@@ -307,10 +309,7 @@ struct RecordRow: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 6) {
-                    HStack(spacing: 5) {
-                        MascotMomentView(moment: record.status.mascotMoment, size: 28)
-                        StatusChip(title: record.status.title, fill: statusColor)
-                    }
+                    StatusChip(title: record.status.title, fill: statusColor)
                     Text(record.createdAt.shortTimeText)
                         .font(.rounded(12, weight: .black))
                         .foregroundStyle(Color.secondaryInk)

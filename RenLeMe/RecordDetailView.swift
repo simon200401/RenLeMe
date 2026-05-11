@@ -136,7 +136,7 @@ struct RecordDetailView: View {
                     .font(.rounded(22, weight: .black))
                     .foregroundStyle(Color.ink)
 
-                Text(record.note.isEmpty ? "没有备注。" : record.note)
+                Text(record.note.isEmpty ? "无" : record.note)
                     .font(.rounded(16, weight: .bold))
                     .foregroundStyle(Color.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)

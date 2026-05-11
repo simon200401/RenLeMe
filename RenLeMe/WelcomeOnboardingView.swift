@@ -2,49 +2,63 @@ import SwiftUI
 
 private enum WelcomeOnboardingStep: Int, CaseIterable {
     case welcome
+    case home
     case record
     case decide
-    case review
+    case goals
+    case profile
 
     var title: String {
         switch self {
         case .welcome:
             "欢迎来到忍了么"
+        case .home:
+            "首页先看成果"
         case .record:
-            "先记下来"
+            "冲动来了先记下"
         case .decide:
-            "不急着决定"
-        case .review:
-            "把忍住变成资产"
+            "给自己一个暂停"
+        case .goals:
+            "把忍住投向目标"
+        case .profile:
+            "复盘不审判"
         }
     }
 
     var message: String {
         switch self {
         case .welcome:
-            "小忍会陪你看见冲动，不批评，也不催你。"
+            "不批评，不催促。"
+        case .home:
+            "钱、热量、时间。"
         case .record:
-            "遇到想买、想吃、想刷的时候，先选类型和具体道具。"
+            "类型、道具、数值。"
         case .decide:
-            "你可以选择忍住、放进冷静箱，或者温柔地记录这次观察。"
-        case .review:
-            "省下的钱、热量和时间都会被看见，慢慢长成你的忍耐资产。"
+            "忍住、冷静箱、观察。"
+        case .goals:
+            "进度和去向。"
+        case .profile:
+            "统计、成就、冷静箱。"
         }
     }
 
     var buttonTitle: String {
-        self == .review ? "开始使用" : "下一步"
+        self == .profile ? "开始使用" : "下一步"
     }
 
     var mascotColor: Color {
         switch self {
         case .welcome:
             .punchGreen
+        case .home:
+            Color(red: 1.0, green: 0.949, blue: 0.839)
         case .record:
             .punchPink
         case .decide:
             .punchYellow
-        case .review:
+        case .goals:
+            .punchGreen
+        case .profile:
             Color(red: 1.0, green: 0.949, blue: 0.839)
         }
     }
@@ -53,12 +67,16 @@ private enum WelcomeOnboardingStep: Int, CaseIterable {
         switch self {
         case .welcome:
             .hello
+        case .home:
+            .celebrate
         case .record:
-            .curious
+            .sparkle
         case .decide:
             .thinking
-        case .review:
+        case .goals:
             .proud
+        case .profile:
+            .relieved
         }
     }
 
@@ -66,12 +84,59 @@ private enum WelcomeOnboardingStep: Int, CaseIterable {
         switch self {
         case .welcome:
             "看见冲动"
+        case .home:
+            "首页"
         case .record:
-            "记录一下"
+            "记录页"
         case .decide:
-            "拿回选择权"
-        case .review:
-            "温柔复盘"
+            "冷静箱"
+        case .goals:
+            "目标页"
+        case .profile:
+            "我的页"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .welcome:
+            "sparkles"
+        case .home:
+            "house.fill"
+        case .record:
+            "plus.circle.fill"
+        case .decide:
+            "archivebox.fill"
+        case .goals:
+            "target"
+        case .profile:
+            "person.crop.circle.fill"
+        }
+    }
+
+    var featureTags: [String] {
+        switch self {
+        case .welcome:
+            ["不羞辱", "有陪伴"]
+        case .home:
+            ["忍耐资产", "点击反馈"]
+        case .record:
+            ["类型", "道具", "数值"]
+        case .decide:
+            ["忍住", "冷静箱", "观察"]
+        case .goals:
+            ["进度", "去向"]
+        case .profile:
+            ["统计", "成就", "复盘"]
+        }
+    }
+
+    var accentUsesDarkText: Bool {
+        switch self {
+        case .decide, .home, .profile:
+            true
+        default:
+            false
         }
     }
 }
@@ -128,11 +193,11 @@ struct WelcomeOnboardingView: View {
 
     private var contentCard: some View {
         PunchyCard(fill: .cream, cornerRadius: 36, padding: 20) {
-            VStack(spacing: 18) {
+            VStack(spacing: 16) {
                 AnimatedXiaoRenView(
                     color: selectedStep.mascotColor,
                     expression: selectedStep.expression,
-                    size: 156,
+                    size: 142,
                     reduceMotion: reduceMotion
                 )
                 .id(selectedStep)
@@ -153,15 +218,55 @@ struct WelcomeOnboardingView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
+                pageCue
+
                 Text(selectedStep.accentText)
                     .font(.rounded(15, weight: .black))
-                    .foregroundStyle(selectedStep == .decide ? Color.punchBlack : Color.white)
+                    .foregroundStyle(selectedStep.accentUsesDarkText ? Color.punchBlack : Color.white)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 10)
                     .background(selectedStep.mascotColor)
                     .clipShape(Capsule())
             }
         }
+    }
+
+    private var pageCue: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: selectedStep.systemImage)
+                    .font(.rounded(17, weight: .black))
+                    .foregroundStyle(Color.punchBlack)
+                    .frame(width: 38, height: 38)
+                    .background(selectedStep.mascotColor.opacity(0.28))
+                    .clipShape(Circle())
+
+                Text(selectedStep.accentText)
+                    .font(.rounded(17, weight: .black))
+                    .foregroundStyle(Color.ink)
+
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 8) {
+                ForEach(selectedStep.featureTags, id: \.self) { tag in
+                    Text(tag)
+                        .font(.rounded(12, weight: .black))
+                        .foregroundStyle(Color.secondaryInk)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(Color.white)
+                        .clipShape(Capsule())
+                }
+
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(12)
+        .background(Color.softCream)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     private var controls: some View {
@@ -191,7 +296,7 @@ struct WelcomeOnboardingView: View {
                 }
 
                 Button {
-                    if selectedStep == .review {
+                    if selectedStep == .profile {
                         onFinish()
                     } else {
                         moveStep(1)
@@ -229,6 +334,34 @@ enum DynamicMascotExpression {
     case curious
     case thinking
     case proud
+    case sparkle
+    case celebrate
+    case cooling
+    case observe
+    case relieved
+
+    init(moment: MascotMoment) {
+        switch moment {
+        case .idle:
+            self = .hello
+        case .choosing:
+            self = .thinking
+        case .resistedSuccess:
+            self = .celebrate
+        case .coolingSaved, .coolingRecord:
+            self = .cooling
+        case .gaveInSaved, .observingRecord:
+            self = .observe
+        case .assetPositive(let type):
+            self = type == .food ? .relieved : .sparkle
+        case .goalProgress(let progress, _):
+            self = progress > 0 ? .proud : .curious
+        case .goalCompleted:
+            self = .celebrate
+        case .reviewCalm:
+            self = .relieved
+        }
+    }
 }
 
 struct AnimatedXiaoRenView: View {
@@ -241,9 +374,10 @@ struct AnimatedXiaoRenView: View {
         TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30.0)) { context in
             let time = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
             let phase = CGFloat(time.remainder(dividingBy: 10))
-            let bounce = sin(phase * 2.1) * 0.035
+            let bounce = sin(phase * bodyTempo) * bodyBounce
             let blink = reduceMotion ? 1 : blinkProgress(phase)
             let look = lookOffset(phase)
+            let tilt = reduceMotion ? 0 : sin(phase * tiltTempo) * tiltAmount
 
             ZStack {
                 DynamicMascotBody(wobble: reduceMotion ? 0 : bounce, expression: expression)
@@ -261,9 +395,62 @@ struct AnimatedXiaoRenView: View {
             }
             .frame(width: size, height: size * 0.96)
             .scaleEffect(y: 1 + (reduceMotion ? 0 : bounce * 0.5), anchor: .bottom)
+            .rotationEffect(.degrees(tilt))
         }
         .frame(width: size, height: size * 0.96)
         .accessibilityLabel("动态小忍")
+    }
+
+    private var bodyTempo: CGFloat {
+        switch expression {
+        case .celebrate, .sparkle:
+            3.4
+        case .cooling, .relieved:
+            1.35
+        case .observe:
+            1.7
+        default:
+            2.1
+        }
+    }
+
+    private var bodyBounce: CGFloat {
+        switch expression {
+        case .celebrate:
+            0.055
+        case .sparkle:
+            0.046
+        case .cooling, .relieved:
+            0.024
+        default:
+            0.035
+        }
+    }
+
+    private var tiltTempo: CGFloat {
+        switch expression {
+        case .curious, .sparkle:
+            1.7
+        case .celebrate:
+            2.8
+        case .observe:
+            1.1
+        default:
+            0
+        }
+    }
+
+    private var tiltAmount: CGFloat {
+        switch expression {
+        case .curious, .sparkle:
+            3
+        case .celebrate:
+            4.5
+        case .observe:
+            1.8
+        default:
+            0
+        }
     }
 
     private func eyes(blink: CGFloat, look: CGFloat) -> some View {
@@ -297,19 +484,21 @@ struct AnimatedXiaoRenView: View {
 
     private var leftBrowRotation: CGFloat {
         switch expression {
-        case .hello: -8
-        case .curious: -16
-        case .thinking: 12
-        case .proud: -6
+        case .hello, .relieved: -8
+        case .curious, .sparkle: -16
+        case .thinking, .cooling: 12
+        case .proud, .celebrate: -6
+        case .observe: 8
         }
     }
 
     private var rightBrowRotation: CGFloat {
         switch expression {
-        case .hello: 8
-        case .curious: 16
-        case .thinking: -12
-        case .proud: 6
+        case .hello, .relieved: 8
+        case .curious, .sparkle: 16
+        case .thinking, .cooling: -12
+        case .proud, .celebrate: 6
+        case .observe: -8
         }
     }
 
@@ -326,26 +515,29 @@ struct AnimatedXiaoRenView: View {
             let centerX = size * 0.5
             let centerY = size * 0.52
             switch expression {
-            case .hello:
+            case .hello, .relieved:
                 path.move(to: CGPoint(x: centerX - size * 0.16, y: centerY))
                 path.addQuadCurve(
                     to: CGPoint(x: centerX + size * 0.16, y: centerY),
                     control: CGPoint(x: centerX, y: centerY + size * (0.18 + sin(phase * 2.2) * 0.018))
                 )
-            case .curious:
+            case .curious, .sparkle:
                 path.addEllipse(in: CGRect(x: centerX - size * 0.055, y: centerY - size * 0.02, width: size * 0.11, height: size * 0.085))
-            case .thinking:
+            case .thinking, .cooling:
                 path.move(to: CGPoint(x: centerX - size * 0.13, y: centerY + size * 0.04))
                 path.addQuadCurve(
                     to: CGPoint(x: centerX + size * 0.13, y: centerY + size * 0.04),
                     control: CGPoint(x: centerX - size * 0.02, y: centerY - size * 0.06)
                 )
-            case .proud:
+            case .proud, .celebrate:
                 path.move(to: CGPoint(x: centerX - size * 0.18, y: centerY - size * 0.01))
                 path.addQuadCurve(
                     to: CGPoint(x: centerX + size * 0.18, y: centerY - size * 0.01),
                     control: CGPoint(x: centerX, y: centerY + size * 0.21)
                 )
+            case .observe:
+                path.move(to: CGPoint(x: centerX - size * 0.13, y: centerY + size * 0.03))
+                path.addLine(to: CGPoint(x: centerX + size * 0.13, y: centerY + size * 0.03))
             }
         }
         .stroke(Color.punchBlack, style: StrokeStyle(lineWidth: size * 0.052, lineCap: .round, lineJoin: .round))
@@ -370,7 +562,7 @@ struct AnimatedXiaoRenView: View {
                 .fill(Color.punchPink.opacity(0.45))
                 .frame(width: size * 0.075)
                 .offset(x: size * 0.36, y: size * 0.11)
-        case .thinking:
+        case .thinking, .cooling:
             Path { path in
                 path.move(to: CGPoint(x: size * 0.76, y: size * 0.23))
                 path.addQuadCurve(
@@ -386,6 +578,51 @@ struct AnimatedXiaoRenView: View {
                 .foregroundStyle(Color.punchYellow)
                 .rotationEffect(.degrees(sin(phase * 2.4) * 12))
                 .offset(x: size * 0.39, y: -size * 0.31)
+        case .sparkle:
+            Image(systemName: "questionmark")
+                .font(.system(size: size * 0.17, weight: .black))
+                .foregroundStyle(Color.punchYellow)
+                .rotationEffect(.degrees(sin(phase * 2.6) * 10))
+                .offset(x: size * 0.38, y: -size * 0.30)
+            Circle()
+                .fill(Color.punchBlue.opacity(0.75))
+                .frame(width: size * 0.08)
+                .offset(x: -size * 0.39, y: -size * 0.24)
+        case .celebrate:
+            Image(systemName: "sparkles")
+                .font(.system(size: size * 0.23, weight: .black))
+                .foregroundStyle(Color.punchYellow)
+                .scaleEffect(1 + sin(phase * 3) * 0.12)
+                .rotationEffect(.degrees(sin(phase * 3.2) * 14))
+                .offset(x: size * 0.40, y: -size * 0.32)
+            Image(systemName: "sparkle")
+                .font(.system(size: size * 0.15, weight: .black))
+                .foregroundStyle(Color.white)
+                .offset(x: -size * 0.38, y: -size * 0.26)
+        case .observe:
+            Circle()
+                .fill(Color.punchPink.opacity(0.38))
+                .frame(width: size * 0.08)
+                .offset(x: -size * 0.34, y: size * 0.10)
+            Circle()
+                .fill(Color.punchPink.opacity(0.38))
+                .frame(width: size * 0.08)
+                .offset(x: size * 0.34, y: size * 0.10)
+        case .relieved:
+            Path { path in
+                path.move(to: CGPoint(x: size * 0.25, y: size * 0.56))
+                path.addQuadCurve(
+                    to: CGPoint(x: size * 0.43, y: size * 0.56),
+                    control: CGPoint(x: size * 0.34, y: size * 0.64)
+                )
+                path.move(to: CGPoint(x: size * 0.57, y: size * 0.56))
+                path.addQuadCurve(
+                    to: CGPoint(x: size * 0.75, y: size * 0.56),
+                    control: CGPoint(x: size * 0.66, y: size * 0.64)
+                )
+            }
+            .stroke(Color.punchBlack, style: StrokeStyle(lineWidth: size * 0.035, lineCap: .round))
+            .frame(width: size, height: size)
         }
     }
 
@@ -402,12 +639,14 @@ struct AnimatedXiaoRenView: View {
 
     private func lookOffset(_ phase: CGFloat) -> CGFloat {
         switch expression {
-        case .hello, .proud:
+        case .hello, .proud, .celebrate, .relieved:
             sin(phase * 1.1)
-        case .curious:
+        case .curious, .sparkle:
             sin(phase * 1.8) * 1.4
-        case .thinking:
+        case .thinking, .cooling:
             -0.8 + sin(phase * 0.9) * 0.35
+        case .observe:
+            sin(phase * 0.7) * 0.45
         }
     }
 }
@@ -424,7 +663,7 @@ private struct DynamicMascotBody: Shape {
     func path(in rect: CGRect) -> Path {
         let w = rect.width
         let h = rect.height
-        let lift = expression == .proud ? -h * 0.025 : 0
+        let lift = (expression == .proud || expression == .celebrate) ? -h * 0.025 : 0
 
         var path = Path()
         path.move(to: CGPoint(x: w * (0.50 + wobble * 0.45), y: h * 0.08 + lift))

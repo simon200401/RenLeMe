@@ -82,13 +82,13 @@ enum MascotMoment: Equatable {
     var feedbackMessage: String {
         switch self {
         case .resistedSuccess:
-            "你刚刚把选择权拿回来了。"
+            "选择权 +1"
         case .coolingSaved:
-            "先放一会儿，等心里安静一点再决定。"
+            "已放入冷静箱"
         case .gaveInSaved:
-            "它不是失败，只是一条线索。我们已经看见它了。"
+            "已记录"
         case .goalCompleted:
-            "这份忍住的价值，真的抵达了想去的地方。"
+            "已完成"
         default:
             ""
         }
@@ -333,6 +333,16 @@ extension View {
 extension UIApplication {
     func dismissKeyboard() {
         sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
+
+enum AppHaptics {
+    static func lightTap() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    static func success() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 }
 
@@ -698,10 +708,12 @@ struct MascotFeedbackCard: View {
                         .font(.rounded(22, weight: .black))
                         .foregroundStyle(textColor)
 
-                    Text(message ?? moment.feedbackMessage)
-                        .font(.rounded(15, weight: .black))
-                        .foregroundStyle(textColor.opacity(0.78))
-                        .fixedSize(horizontal: false, vertical: true)
+                    if !(message ?? moment.feedbackMessage).isEmpty {
+                        Text(message ?? moment.feedbackMessage)
+                            .font(.rounded(15, weight: .black))
+                            .foregroundStyle(textColor.opacity(0.78))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 Spacer(minLength: 0)
@@ -712,6 +724,7 @@ struct MascotFeedbackCard: View {
 }
 
 struct MascotFeedbackPopup: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let moment: MascotMoment
     var message: String?
     var onDismiss: () -> Void = {}
@@ -723,7 +736,12 @@ struct MascotFeedbackPopup: View {
                 .onTapGesture(perform: onDismiss)
 
             VStack(spacing: 16) {
-                MascotMomentView(moment: moment, size: 124)
+                AnimatedXiaoRenView(
+                    color: moment.color,
+                    expression: DynamicMascotExpression(moment: moment),
+                    size: 124,
+                    reduceMotion: reduceMotion
+                )
                     .padding(.top, 4)
 
                 VStack(spacing: 8) {
@@ -731,11 +749,13 @@ struct MascotFeedbackPopup: View {
                         .font(.rounded(32, weight: .black))
                         .foregroundStyle(moment.feedbackUsesDarkText ? Color.punchBlack : .white)
 
-                    Text(message ?? moment.feedbackMessage)
-                        .font(.rounded(17, weight: .black))
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle((moment.feedbackUsesDarkText ? Color.punchBlack : .white).opacity(0.78))
-                        .fixedSize(horizontal: false, vertical: true)
+                    if !(message ?? moment.feedbackMessage).isEmpty {
+                        Text(message ?? moment.feedbackMessage)
+                            .font(.rounded(17, weight: .black))
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle((moment.feedbackUsesDarkText ? Color.punchBlack : .white).opacity(0.78))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
             .padding(.horizontal, 24)
@@ -1822,9 +1842,9 @@ struct AssetBlockCard: View {
         Button {
             playReaction()
         } label: {
-            PunchyCard(fill: Color.blockColor(for: type), cornerRadius: 28, padding: 16) {
+            PunchyCard(fill: Color.blockColor(for: type), cornerRadius: 28, padding: subtitle.isEmpty ? 14 : 16) {
                 ZStack(alignment: .topTrailing) {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: subtitle.isEmpty ? 8 : 12) {
                         Text(type.assetTitle)
                             .font(.rounded(15, weight: .black))
                             .foregroundStyle(type == .time ? Color.punchBlack : .white)
@@ -1835,16 +1855,18 @@ struct AssetBlockCard: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.58)
 
-                        Text(subtitle)
-                            .font(.rounded(12, weight: .bold))
-                            .foregroundStyle((type == .time ? Color.punchBlack : .white).opacity(0.78))
-                            .lineLimit(2)
+                        if !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(.rounded(12, weight: .bold))
+                                .foregroundStyle((type == .time ? Color.punchBlack : .white).opacity(0.78))
+                                .lineLimit(2)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    AssetMascotSticker(mood: mascotMood, size: isReacting ? 54 : 46)
+                    AssetMascotSticker(mood: mascotMood, size: isReacting ? 50 : 42)
                         .rotationEffect(.degrees(isReacting ? mascotReactionRotation : 0))
-                        .offset(x: 8 + (isReacting ? mascotReactionOffset : 0), y: -8)
+                        .offset(x: 6 + (isReacting ? mascotReactionOffset : 0), y: -6)
                         .animation(reduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.46), value: isReacting)
                 }
             }
@@ -1872,6 +1894,8 @@ struct AssetBlockCard: View {
 
     private func playReaction() {
         if reduceMotion { return }
+
+        AppHaptics.lightTap()
 
         withAnimation(.spring(response: 0.2, dampingFraction: 0.58)) {
             bounceToken += 1
@@ -1912,11 +1936,13 @@ struct EmptyStateView: View {
                 .font(.rounded(20, weight: .black))
                 .foregroundStyle(Color.ink)
 
-            Text(message)
-                .font(.rounded(15, weight: .bold))
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Color.secondaryInk)
-                .fixedSize(horizontal: false, vertical: true)
+            if !message.isEmpty {
+                Text(message)
+                    .font(.rounded(15, weight: .bold))
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Color.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(18)

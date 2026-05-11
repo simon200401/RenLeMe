@@ -24,7 +24,7 @@ struct HistoryRecordsView: View {
 
                     if filteredRecords.isEmpty {
                         PunchyCard(fill: .cardBackground) {
-                            EmptyStateView(title: "没有符合条件的记录", message: "换个筛选条件看看，或者下一次冲动来临时先记下来。", systemImage: "tray")
+                            EmptyStateView(title: "没有符合条件的记录", message: "", systemImage: "tray")
                         }
                     } else {
                         VStack(spacing: 12) {
@@ -144,7 +144,7 @@ private enum RecordStatusFilter: String, CaseIterable, Identifiable, TitledFilte
         case .all: "全部"
         case .resisted: "忍住"
         case .pending: "冷静"
-        case .gaveIn: "观察"
+        case .gaveIn: "没忍住"
         }
     }
 
