@@ -321,6 +321,12 @@ Demo 记录：
 - 相机：忍住了，¥128。
 - 外卖：没忍住，800 kcal。
 
+上线策略：
+
+- Demo 记录只在 Debug 构建中自动插入。
+- Release/TestFlight 默认不插入 Demo 记录，保证正式用户首次进入不会看到假历史。
+- 默认目标和本地食物库保留，用作产品模板和初始可用能力。
+
 ## 11. 统计规则
 
 文件：`StatsCalculator.swift`
@@ -365,6 +371,8 @@ Demo 记录：
 - App 图标。
 - 自定义启动页。
 - Demo 种子数据。
+- 上线准备清单。
+- 隐私政策草稿。
 - 产品交付版 PPT：`outputs/manual-portfolio/presentations/renleme-portfolio/output/RenLeMe-Product-Presentation.pptx`
 
 仍需补强：
@@ -374,8 +382,15 @@ Demo 记录：
 - 更细的趋势统计图表。
 - 冷静箱提醒设置页。
 - 目标 deadline 的完整 UI。
-- 隐私说明和 App Store 上架材料。
+- 隐私政策 URL、支持 URL 和 App Store 上架材料。
 - 用户自建食物库编辑入口。
+
+已新增但仍需外部部署：
+
+- `RELEASE_READINESS.md`
+- `PRIVACY_POLICY_DRAFT.md`
+
+隐私政策草稿需要在提交 App Store 前部署为公开 URL。
 
 ## 13. 建议实现路径
 
@@ -391,8 +406,9 @@ Demo 记录：
 
 - P0：修复任何编译/启动/主流程阻断。
 - P1：真机体验、滚动、键盘、触控、图片权限。
-- P2：统计增强、冷静箱设置、隐私和上架材料。
-- P3：云同步、账号、AI 教练等长期能力。
+- P2：隐私 URL、支持 URL、App Store 截图和上架材料。
+- P3：统计增强、冷静箱设置、用户自建食物库。
+- P4：云同步、账号、AI 教练等长期能力。
 
 ## 14. 验证命令
 

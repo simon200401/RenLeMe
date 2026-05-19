@@ -124,7 +124,9 @@ struct AppRootView: View {
         .task {
             seedDefaultGoalsIfNeeded()
             seedFoodNutritionItemsIfNeeded()
-            seedDemoRecordsIfNeeded()
+            if AppRuntimeConfig.shouldSeedDemoRecords {
+                seedDemoRecordsIfNeeded()
+            }
         }
         .appKeyboardDismissal()
     }
@@ -269,5 +271,15 @@ enum AppTab: Hashable {
         case .goals: "target"
         case .profile: "person.crop.circle"
         }
+    }
+}
+
+private enum AppRuntimeConfig {
+    static var shouldSeedDemoRecords: Bool {
+        #if DEBUG
+        true
+        #else
+        false
+        #endif
     }
 }

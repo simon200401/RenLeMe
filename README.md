@@ -19,6 +19,8 @@
 - 完整项目框架：[`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md)
 - 原始产品需求：[`PRD.md`](PRD.md)
 - 真机回归清单：[`QA_CHECKLIST.md`](QA_CHECKLIST.md)
+- 上线准备清单：[`RELEASE_READINESS.md`](RELEASE_READINESS.md)
+- 隐私政策草稿：[`PRIVACY_POLICY_DRAFT.md`](PRIVACY_POLICY_DRAFT.md)
 
 ## 代码结构
 
@@ -45,6 +47,8 @@ RenLeMe/
 ## 运行方式
 
 用 Xcode 打开 `RenLeMe.xcodeproj`，选择 iPhone Simulator 运行。当前工程面向 iOS 17+，本地数据使用 SwiftData。
+
+说明：Demo 假记录只在 Debug 构建中自动插入，Release/TestFlight 默认不插入，方便上线时保持干净首启体验。
 
 常用静态检查：
 

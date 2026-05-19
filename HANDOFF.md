@@ -36,11 +36,12 @@ App 把“忍住”转化成三类可见资产：
 - 小忍动态反馈系统。
 - 首次启动新手引导。
 - App 图标和自定义启动页。
+- 上线准备清单和隐私政策草稿。
 
 还未完成或待加强：
 
 - 单元测试/UI 测试。
-- App Store 隐私说明和上架材料。
+- App Store 隐私政策 URL 和支持 URL 部署。
 - 真机多尺寸完整回归。
 - 更完整的趋势图表。
 - 冷静箱提醒设置页。
@@ -76,6 +77,7 @@ RenLeMe/RenLeMeApp.swift
 - 四个 Tab。
 - 启动页和新手引导 overlay。
 - 默认目标、食物库、Demo 记录种子数据。
+- Release/TestFlight 默认不插入 Demo 假记录。
 
 ```text
 RenLeMe/Models.swift
@@ -200,6 +202,12 @@ RenLeMe/EditRecordView.swift
 - 时间默认 15 分钟。
 - 到期发本地通知。
 
+上线注意：
+
+- Demo 假记录只在 Debug 构建中自动插入。
+- Release/TestFlight 默认不插入 Demo 假记录。
+- 默认目标和本地食物库仍会种子插入，作为产品初始模板能力。
+
 ## 视觉和交互方向
 
 当前设计方向：
@@ -237,6 +245,13 @@ outputs/manual-portfolio/presentations/renleme-portfolio/assets/app-screens/
 
 这些 `outputs/` 当前未纳入 Git 版本控制，属于作品集/展示产物。
 
+上线相关文档：
+
+```text
+RELEASE_READINESS.md
+PRIVACY_POLICY_DRAFT.md
+```
+
 ## 运行和验证
 
 用 Xcode 打开：
@@ -273,7 +288,7 @@ plutil -lint RenLeMe.xcodeproj/project.pbxproj
 
 - 做一次真机完整回归，尤其是拍照权限、相册权限、通知权限、键盘收起、滚动区域。
 - 补最小单元测试，优先覆盖 `StatsCalculator`。
-- 补 App Store 上架前的隐私文案。
+- 部署隐私政策和支持页面 URL。
 
 暂时不要：
 
