@@ -32,6 +32,14 @@
 - 本地食物库不联网。
 - Demo 假记录只在 Debug 构建自动插入，Release/TestFlight 默认不插入。
 - SwiftData 本地保存记录、目标、食物库。
+- App Store 文案草稿已补充：`APP_STORE_LISTING_DRAFT.md`。
+
+## 已验证
+
+- Debug 模拟器构建并启动通过。
+- Release 模拟器编译通过。
+- Release 模拟器首次启动后没有自动插入 Demo 假记录。
+- Release 首屏资产为 `¥0 / 0 kcal / 0 min`，默认目标仍保留。
 
 ## P0：提交 TestFlight 前必须完成
 

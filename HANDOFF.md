@@ -250,6 +250,7 @@ outputs/manual-portfolio/presentations/renleme-portfolio/assets/app-screens/
 ```text
 RELEASE_READINESS.md
 PRIVACY_POLICY_DRAFT.md
+APP_STORE_LISTING_DRAFT.md
 ```
 
 ## 运行和验证

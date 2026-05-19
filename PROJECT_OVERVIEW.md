@@ -389,6 +389,7 @@ Demo 记录：
 
 - `RELEASE_READINESS.md`
 - `PRIVACY_POLICY_DRAFT.md`
+- `APP_STORE_LISTING_DRAFT.md`
 
 隐私政策草稿需要在提交 App Store 前部署为公开 URL。
 
