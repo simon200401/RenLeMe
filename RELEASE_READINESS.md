@@ -2,7 +2,9 @@
 
 更新时间：2026-09-22
 
-当前结论：产品功能、Release 分析和 Apple Development 签名 Archive 已通过。正式上线仍需完成真机回归、App Store 分发上传、TestFlight 和 App Store Connect 提交。
+当前结论：产品功能、Release 分析和 Apple Development 签名 Archive 已通过，隐私政策与支持页面已上线。正式上线仍需完成真机回归、App Store 分发上传、TestFlight 和 App Store Connect 提交。
+
+App Store 构建源码基线：`a64996d`（目标图片与目标值单位功能已包含）。
 
 ## v1.0 产品边界
 
@@ -29,7 +31,7 @@
 - [x] 隐私清单 `PrivacyInfo.xcprivacy` 已加入 App。
 - [x] 已声明不使用非豁免加密，减少出口合规补充步骤。
 - [x] App 内新增“数据与隐私”说明入口。
-- [x] 隐私政策页、支持页及部署配置已准备在 `release-site/`。
+- [x] 隐私政策页与支持页已部署到 Netlify 正式站点。
 - [x] App Store 文案、隐私问卷答案、审核备注草稿已整理。
 
 ## 需要用户确认：Apple 分发账号
@@ -50,7 +52,7 @@
 
 ## 需要用户完成：发布链路
 
-- [ ] 登录 Netlify 后部署隐私政策 URL 与支持 URL。
+- [x] Netlify 正式站点已部署并验证：`https://renleme.netlify.app`。
 - [ ] 在 App Store Connect 创建 App 记录。
 - [ ] 上传 Archive 到 App Store Connect。
 - [ ] 添加 TestFlight 内部测试版本，并完成一次干净安装回归。
@@ -65,8 +67,10 @@
 - 提交操作步骤：`APP_STORE_SUBMISSION_GUIDE.md`
 - 真机回归清单：`QA_CHECKLIST.md`
 - 隐私政策正文：`PRIVACY_POLICY_DRAFT.md`
-- 待部署静态站点：`release-site/`
+- 已部署静态站点源码：`release-site/`
 - Netlify 配置：`netlify.toml`
+- 支持 URL：`https://renleme.netlify.app/support.html`
+- 隐私政策 URL：`https://renleme.netlify.app/privacy.html`
 
 ## 发布后再考虑
 

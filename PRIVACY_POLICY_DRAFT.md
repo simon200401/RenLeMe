@@ -70,4 +70,4 @@ App 内的食物热量用于轻量记录和估算，不构成医学、营养或�
 
 ## 8. 联系方式
 
-请通过公开支持页面提交问题：`release-site/support.html`。页面上线后，以正式支持 URL 为准。
+请通过公开支持页面提交问题：`https://renleme.netlify.app/support.html`。

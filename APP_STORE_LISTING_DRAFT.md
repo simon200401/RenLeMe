@@ -107,11 +107,11 @@ App Store Connect 填写建议：
 
 ## 支持 URL
 
-使用 `release-site/support.html` 部署后的公开 HTTPS URL。
+`https://renleme.netlify.app/support.html`
 
 ## 隐私政策 URL
 
-使用 `release-site/privacy.html` 部署后的公开 HTTPS URL。
+`https://renleme.netlify.app/privacy.html`
 
 ## 年龄分级填写参考
 

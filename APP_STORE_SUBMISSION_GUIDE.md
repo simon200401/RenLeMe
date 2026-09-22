@@ -66,7 +66,9 @@
 
 1. 进入 `App Store Connect → 忍了么 → App Privacy → Get Started`。
 2. 选择“否，我们不会从此 App 收集数据”。当前版本没有账号、分析 SDK、广告 SDK或服务器上传。
-3. 在版本页面填写 Support URL 与 Privacy Policy URL，使用 `release-site` 发布后的 HTTPS 地址。
+3. 在版本页面填写：
+   - Support URL：`https://renleme.netlify.app/support.html`
+   - Privacy Policy URL：`https://renleme.netlify.app/privacy.html`
 4. Review Information 不需要测试账号。
 5. Notes 使用 `APP_STORE_LISTING_DRAFT.md` 中的 App Review 备注。
 6. Export Compliance：工程已声明不使用非豁免加密；如果后台仍询问，选择 App 不使用非豁免加密。
