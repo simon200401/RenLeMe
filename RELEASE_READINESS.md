@@ -2,7 +2,7 @@
 
 更新时间：2026-09-22
 
-当前结论：产品功能与无签名 Release 包已通过工程验证。正式上线仍需完成 Apple 账号协议、签名归档、真机回归、TestFlight 和 App Store Connect 提交。
+当前结论：产品功能、Release 分析和 Apple Development 签名 Archive 已通过。正式上线仍需完成真机回归、App Store 分发上传、TestFlight 和 App Store Connect 提交。
 
 ## v1.0 产品边界
 
@@ -18,6 +18,7 @@
 - [x] `swiftc -parse RenLeMe/*.swift` 通过。
 - [x] Release Simulator 构建通过。
 - [x] Generic iOS Device 无签名 Archive 通过。
+- [x] Apple Development 自动签名 Archive 通过，Bundle ID 与 Team 正确。
 - [x] Release 干净安装可启动，首次欢迎引导正常出现。
 - [x] Release 干净安装不插入 Demo 记录，资产初始值为 0。
 - [x] App 图标、启动页和首次引导已配置。
@@ -29,15 +30,15 @@
 - [x] 隐私政策页、支持页及部署配置已准备在 `release-site/`。
 - [x] App Store 文案、隐私问卷答案、审核备注草稿已整理。
 
-## 需要用户完成：Apple 账号与签名
+## 需要用户确认：Apple 分发账号
 
-- [ ] 接受 Apple Developer 最新协议，并确认会员有效。
-- [ ] 在 Xcode 登录有效开发者账号。
-- [ ] 为 `com.simonx.renleme` 选择 Team，并打开自动签名。
+- [x] Xcode 已登录有效开发者账号，主 App 自动签名正常。
+- [x] `com.simonx.renleme` 已使用 Team `37D28864BV` 完成签名 Archive。
+- [ ] 在 Apple Developer 与 App Store Connect 确认没有待接受协议或商务信息。
+- [ ] 在 Organizer 上传时确认 Xcode 能创建或使用 Apple Distribution 证书。
 - [ ] 使用真机完成一次签名安装。
-- [ ] 使用 `Any iOS Device (arm64)` 完成正式 Archive。
 
-详细路径见 `APP_STORE_SUBMISSION_GUIDE.md` 的第 1-3 节。
+当前钥匙串只有 Apple Development 身份；Distribution 身份通常可由 Organizer 上传流程自动创建。详细路径见 `APP_STORE_SUBMISSION_GUIDE.md` 的第 1-3 节。
 
 ## 需要用户完成：真机回归
 

@@ -14,6 +14,7 @@
 - 隐私页：`release-site/privacy.html`
 - 支持页：`release-site/support.html`
 - 灵动岛扩展 Target 已从工程移除
+- Apple Development 签名 Archive 已验证通过
 
 ## 1. 接受 Apple 协议
 
@@ -32,9 +33,9 @@
 3. 打开 `Signing & Capabilities`。
 4. 勾选 `Automatically manage signing`。
 5. Team 选择你的有效开发者团队；Bundle Identifier 保持 `com.simonx.renleme`。
-6. 顶部运行目标选择 `Any iOS Device (arm64)`，确认 Signing 区域不再显示红色错误。
+6. 顶部运行目标选择 `Any iOS Device (arm64)`，确认 Signing 区域不再显示红色错误。当前工程已成功生成 Apple Development 签名 Archive。
 
-如果仍提示 Profile 错误：进入 `Xcode → Settings → Accounts → Manage Certificates`，确认存在 Apple Development 与 Apple Distribution 证书；再回到 Signing 页面刷新。
+当前钥匙串已有 Apple Development 证书，但尚未发现 Apple Distribution 证书。上传时如果 Xcode 不能自动创建：进入 `Xcode → Settings → Accounts → Manage Certificates`，点击 `+` 创建 `Apple Distribution`，再回到 Organizer 重试。
 
 ## 3. 真机回归
 
