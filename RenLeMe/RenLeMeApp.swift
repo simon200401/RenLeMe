@@ -1,9 +1,46 @@
 import SwiftData
 import SwiftUI
 import UIKit
+import UserNotifications
+
+extension Notification.Name {
+    static let openCooldownRecord = Notification.Name("renleme.openCooldownRecord")
+}
+
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        if let recordId = response.notification.request.content.userInfo["recordId"] as? String {
+            UserDefaults.standard.set(recordId, forKey: "renleme.pendingCooldownRoute")
+            NotificationCenter.default.post(name: .openCooldownRecord, object: recordId)
+        }
+        completionHandler()
+    }
+}
 
 @main
 struct RenLeMeApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     init() {
         let titleColor = UIColor(red: 0.025, green: 0.025, blue: 0.035, alpha: 1)
         let backgroundColor = UIColor(red: 0.965, green: 0.953, blue: 0.909, alpha: 1)
@@ -51,11 +88,13 @@ struct AppRootView: View {
     @AppStorage("didSeedDefaultGoals") private var didSeedDefaultGoals = false
     @AppStorage("didSeedFoodNutritionItems") private var didSeedFoodNutritionItems = false
     @AppStorage("didSeedDemoRecords") private var didSeedDemoRecords = false
+    @AppStorage("didNormalizeDefaultGoalsV1") private var didNormalizeDefaultGoalsV1 = false
     @AppStorage("didCompleteWelcomeOnboarding") private var didCompleteWelcomeOnboarding = false
     @State private var selectedTab: AppTab = .home
     @State private var isPresentingRecord = false
     @State private var isShowingWelcomeOnboarding = false
     @State private var isShowingLaunchSplash = true
+    @State private var routedCooldownRecord: ResistRecord?
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -105,6 +144,11 @@ struct AppRootView: View {
             }
             .presentationDetents([.large])
         }
+        .sheet(item: $routedCooldownRecord) { record in
+            NavigationStack {
+                RecordDetailView(record: record)
+            }
+        }
         .overlay {
             if isShowingLaunchSplash {
                 LaunchSplashView {
@@ -123,10 +167,19 @@ struct AppRootView: View {
         }
         .task {
             seedDefaultGoalsIfNeeded()
+            normalizeDefaultGoalsIfNeeded()
             seedFoodNutritionItemsIfNeeded()
             if AppRuntimeConfig.shouldSeedDemoRecords {
                 seedDemoRecordsIfNeeded()
             }
+            routePendingCooldownIfNeeded()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openCooldownRecord)) { notification in
+            guard let rawId = notification.object as? String, let id = UUID(uuidString: rawId) else { return }
+            routeToCooldownRecord(id: id)
+        }
+        .onChange(of: records.count) { _, _ in
+            routePendingCooldownIfNeeded()
         }
         .appKeyboardDismissal()
     }
@@ -160,12 +213,58 @@ struct AppRootView: View {
         }
     }
 
+    private func routePendingCooldownIfNeeded() {
+        guard let rawId = UserDefaults.standard.string(forKey: "renleme.pendingCooldownRoute"),
+              let id = UUID(uuidString: rawId)
+        else { return }
+
+        routeToCooldownRecord(id: id)
+    }
+
+    private func routeToCooldownRecord(id: UUID) {
+        guard let record = records.first(where: { $0.id == id }) else { return }
+        guard record.status == .pending else {
+            UserDefaults.standard.removeObject(forKey: "renleme.pendingCooldownRoute")
+            return
+        }
+
+        UserDefaults.standard.removeObject(forKey: "renleme.pendingCooldownRoute")
+        isShowingLaunchSplash = false
+        isShowingWelcomeOnboarding = false
+        isPresentingRecord = false
+        routedCooldownRecord = record
+    }
+
     private func seedDefaultGoalsIfNeeded() {
         guard !didSeedDefaultGoals else { return }
         modelContext.insert(Goal(title: "新相机基金", type: .money, targetValue: 3000, icon: "camera.fill"))
-        modelContext.insert(Goal(title: "本周少喝 3 杯奶茶", type: .food, targetValue: 900, icon: "cup.and.saucer.fill"))
-        modelContext.insert(Goal(title: "本周拿回 10 小时", type: .time, targetValue: 600, icon: "moon.stars.fill"))
+        modelContext.insert(Goal(title: "少喝奶茶", type: .food, targetValue: 900, icon: "cup.and.saucer.fill"))
+        modelContext.insert(Goal(title: "拿回 10 小时", type: .time, targetValue: 600, icon: "moon.stars.fill"))
         didSeedDefaultGoals = true
+    }
+
+    private func normalizeDefaultGoalsIfNeeded() {
+        guard !didNormalizeDefaultGoalsV1 else { return }
+
+        for goal in goals {
+            switch (goal.title, goal.type, goal.targetValue) {
+            case ("本周少喝 3 杯奶茶", .food, 900):
+                goal.title = "少喝奶茶"
+            case ("本周拿回 10 小时", .time, 600):
+                goal.title = "拿回 10 小时"
+            default:
+                continue
+            }
+        }
+
+        do {
+            try modelContext.save()
+            didNormalizeDefaultGoalsV1 = true
+        } catch {
+            #if DEBUG
+            print("Failed to normalize default goals: \(error.localizedDescription)")
+            #endif
+        }
     }
 
     private func seedFoodNutritionItemsIfNeeded() {

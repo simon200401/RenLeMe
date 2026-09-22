@@ -1970,3 +1970,233 @@ struct SectionHeader: View {
         }
     }
 }
+
+struct CooldownStatusLabel: View {
+    let record: ResistRecord
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 15)) { context in
+            let isReady = (record.cooldownUntil ?? .distantPast) <= context.date
+
+            HStack(spacing: 8) {
+                StatusChip(
+                    title: isReady ? "可以决定了" : "冷静中",
+                    fill: isReady ? .punchGreen : .punchBlack
+                )
+
+                if !isReady, let cooldownUntil = record.cooldownUntil {
+                    Text(timerInterval: context.date...cooldownUntil, countsDown: true)
+                        .font(.rounded(13, weight: .black))
+                        .foregroundStyle(Color.secondaryInk)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+}
+
+struct CooldownDecisionActions: View {
+    let record: ResistRecord
+    var onFeedback: (MascotMoment) -> Void = { _ in }
+
+    @State private var requestedStatus: ResistStatus?
+    @State private var isShowingValueSheet = false
+    @State private var isShowingDelayOptions = false
+
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                decisionButton(
+                    title: "我忍住了",
+                    systemImage: "checkmark",
+                    fill: .punchBlack,
+                    foreground: .white,
+                    status: .resisted
+                )
+
+                decisionButton(
+                    title: "我还是做了",
+                    systemImage: "eye.fill",
+                    fill: .cream,
+                    foreground: .punchBlack,
+                    status: .gaveIn
+                )
+            }
+
+            Button {
+                isShowingDelayOptions = true
+            } label: {
+                Label("再等一会", systemImage: "clock.arrow.circlepath")
+                    .font(.rounded(15, weight: .black))
+                    .foregroundStyle(Color.punchBlack)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(Color.softBlockColor(for: record.type))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(PressableScaleStyle())
+        }
+        .confirmationDialog("再等多久？", isPresented: $isShowingDelayOptions, titleVisibility: .visible) {
+            ForEach(delayOptions, id: \.seconds) { option in
+                Button(option.title) {
+                    CooldownCoordinator.extend(record, by: option.seconds)
+                    AppHaptics.lightTap()
+                    onFeedback(.coolingSaved)
+                }
+            }
+
+            Button("取消", role: .cancel) {}
+        }
+        .sheet(isPresented: $isShowingValueSheet) {
+            if let requestedStatus {
+                CooldownValueSheet(record: record, status: requestedStatus) { value in
+                    resolve(as: requestedStatus, estimatedValue: value)
+                }
+                .presentationDetents([.medium])
+            }
+        }
+    }
+
+    private func decisionButton(
+        title: String,
+        systemImage: String,
+        fill: Color,
+        foreground: Color,
+        status: ResistStatus
+    ) -> some View {
+        Button {
+            requestResolution(as: status)
+        } label: {
+            Label(title, systemImage: systemImage)
+                .font(.rounded(15, weight: .black))
+                .foregroundStyle(foreground)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(fill)
+                .clipShape(Capsule())
+                .overlay {
+                    Capsule()
+                        .stroke(Color.punchBlack.opacity(fill == Color.cream ? 1 : 0), lineWidth: 2)
+                }
+        }
+        .buttonStyle(PressableScaleStyle())
+    }
+
+    private func requestResolution(as status: ResistStatus) {
+        if record.hasEstimatedValue {
+            resolve(as: status, estimatedValue: nil)
+        } else {
+            requestedStatus = status
+            isShowingValueSheet = true
+        }
+    }
+
+    private func resolve(as status: ResistStatus, estimatedValue: Double?) {
+        CooldownCoordinator.resolve(record, as: status, estimatedValue: estimatedValue)
+        if status == .resisted {
+            AppHaptics.success()
+            onFeedback(.resistedSuccess)
+        } else {
+            AppHaptics.lightTap()
+            onFeedback(.gaveInSaved)
+        }
+    }
+
+    private var delayOptions: [(title: String, seconds: TimeInterval)] {
+        switch record.type {
+        case .money:
+            [("再等 1 小时", 60 * 60), ("再等 24 小时", 24 * 60 * 60), ("再等 3 天", 3 * 24 * 60 * 60)]
+        case .food:
+            [("再等 10 分钟", 10 * 60), ("再等 30 分钟", 30 * 60), ("再等 1 小时", 60 * 60)]
+        case .time:
+            [("再等 15 分钟", 15 * 60), ("再等 30 分钟", 30 * 60), ("再等 1 小时", 60 * 60)]
+        }
+    }
+}
+
+private struct CooldownValueSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let record: ResistRecord
+    let status: ResistStatus
+    let onComplete: (Double?) -> Void
+
+    @State private var valueText = ""
+
+    private var parsedValue: Double? {
+        guard let value = Double(valueText.replacingOccurrences(of: ",", with: "")), value > 0 else {
+            return nil
+        }
+        return value
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(record.title)
+                            .font(.rounded(26, weight: .black))
+                            .foregroundStyle(Color.ink)
+                        Text("补充\(record.type.valueTitle)")
+                            .font(.rounded(15, weight: .bold))
+                            .foregroundStyle(Color.secondaryInk)
+                    }
+
+                    Spacer()
+                    MascotMomentView(moment: status == .resisted ? .resistedSuccess : .observingRecord, size: 64)
+                }
+
+                AppTextField(
+                    placeholder: valuePlaceholder,
+                    text: $valueText,
+                    keyboardType: .decimalPad
+                )
+
+                Button {
+                    guard let parsedValue else { return }
+                    finish(with: parsedValue)
+                } label: {
+                    Text("保存决定")
+                        .font(.rounded(17, weight: .black))
+                        .foregroundStyle(Color.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .background(Color.punchBlack)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(PressableScaleStyle())
+                .disabled(parsedValue == nil)
+                .opacity(parsedValue == nil ? 0.45 : 1)
+
+                Button("暂不填写") {
+                    finish(with: nil)
+                }
+                .font(.rounded(15, weight: .black))
+                .foregroundStyle(Color.secondaryInk)
+                .frame(maxWidth: .infinity)
+
+                Spacer()
+            }
+            .padding(20)
+            .background(Color.appBackground.ignoresSafeArea())
+            .navigationTitle("完成冷静")
+            .navigationBarTitleDisplayMode(.inline)
+            .appKeyboardDismissal()
+        }
+    }
+
+    private var valuePlaceholder: String {
+        switch record.type {
+        case .money: "金额 · ¥"
+        case .food: "热量 · kcal"
+        case .time: "时长 · 分钟"
+        }
+    }
+
+    private func finish(with value: Double?) {
+        UIApplication.shared.dismissKeyboard()
+        onComplete(value)
+        dismiss()
+    }
+}

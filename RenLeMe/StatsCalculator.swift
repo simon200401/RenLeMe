@@ -8,10 +8,43 @@ struct AssetSummary {
     static let empty = AssetSummary(money: 0, calories: 0, minutes: 0)
 }
 
+enum AssetPeriod: String, CaseIterable, Identifiable {
+    case week, month, all
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .week: "本周"
+        case .month: "本月"
+        case .all: "全部"
+        }
+    }
+
+    func interval(at date: Date, calendar: Calendar) -> DateInterval? {
+        switch self {
+        case .week: calendar.dateInterval(of: .weekOfYear, for: date)
+        case .month: calendar.dateInterval(of: .month, for: date)
+        case .all: nil
+        }
+    }
+}
+
 enum StatsCalculator {
-    static func assets(from records: [ResistRecord]) -> AssetSummary {
-        records.reduce(into: .empty) { result, record in
-            guard record.status == .resisted else { return }
+    static func assets(
+        from records: [ResistRecord],
+        period: AssetPeriod = .all,
+        now: Date = .now,
+        calendar: Calendar = .current
+    ) -> AssetSummary {
+        let interval = period.interval(at: now, calendar: calendar)
+        return records.reduce(into: .empty) { result, record in
+            guard record.status == .resisted, record.hasEstimatedValue else { return }
+            // Assets accrue when a decision is made; older records may only have a creation date.
+            let earnedAt = record.resolvedAt ?? record.createdAt
+            if let interval {
+                guard earnedAt >= interval.start, earnedAt < interval.end else { return }
+            }
 
             switch record.type {
             case .money:
@@ -27,6 +60,7 @@ enum StatsCalculator {
     static func currentValue(for goal: Goal, records: [ResistRecord]) -> Double {
         records.reduce(0) { partial, record in
             guard record.status == .resisted,
+                  record.hasEstimatedValue,
                   record.type == goal.type,
                   record.goalId == goal.id
             else { return partial }
@@ -37,7 +71,7 @@ enum StatsCalculator {
 
     static func totalValue(for type: ResistType, records: [ResistRecord]) -> Double {
         records.reduce(0) { partial, record in
-            guard record.status == .resisted, record.type == type else { return partial }
+            guard record.status == .resisted, record.hasEstimatedValue, record.type == type else { return partial }
             return partial + record.value
         }
     }
@@ -79,12 +113,12 @@ enum StatsCalculator {
         }
     }
 
-    static func currentStreak(in records: [ResistRecord], calendar: Calendar = .current) -> Int {
-        let resistedDays = Set(records.filter { $0.status == .resisted }.map { calendar.startOfDay(for: $0.createdAt) })
+    static func currentRecordStreak(in records: [ResistRecord], calendar: Calendar = .current) -> Int {
+        let recordedDays = Set(records.map { calendar.startOfDay(for: $0.createdAt) })
         var streak = 0
         var cursor = calendar.startOfDay(for: .now)
 
-        while resistedDays.contains(cursor) {
+        while recordedDays.contains(cursor) {
             streak += 1
             guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
             cursor = previous
@@ -93,18 +127,19 @@ enum StatsCalculator {
         return streak
     }
 
-    static func strongestTypeThisWeek(in records: [ResistRecord], calendar: Calendar = .current) -> ResistType? {
+    static func mostFrequentResistedTypeThisWeek(in records: [ResistRecord], calendar: Calendar = .current) -> ResistType? {
         let weekRecords = resistedThisWeek(in: records, calendar: calendar)
         guard !weekRecords.isEmpty else { return nil }
 
-        let totals = ResistType.allCases.map { type in
-            (type, totalValue(for: type, records: weekRecords))
+        let counts = ResistType.allCases.map { type in
+            (type, weekRecords.filter { $0.type == type }.count)
         }
-        guard let strongest = totals.max(by: { $0.1 < $1.1 }), strongest.1 > 0 else {
+        guard let highestCount = counts.map(\.1).max(), highestCount > 0 else {
             return nil
         }
 
-        return strongest.0
+        let leaders = counts.filter { $0.1 == highestCount }
+        return leaders.count == 1 ? leaders[0].0 : nil
     }
 }
 

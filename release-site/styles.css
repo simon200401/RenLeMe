@@ -1,0 +1,88 @@
+:root {
+  color-scheme: light;
+  --cream: #f7f3e8;
+  --paper: #fffdf8;
+  --ink: #08080d;
+  --muted: #62616b;
+  --green: #00c675;
+  --pink: #ef7fc0;
+  --yellow: #ffd106;
+  font-family: ui-rounded, "SF Pro Rounded", "PingFang SC", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--cream);
+  line-height: 1.7;
+}
+
+main {
+  width: min(760px, calc(100% - 36px));
+  margin: 0 auto;
+  padding: 56px 0 80px;
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 30px;
+  border-radius: 28px;
+  background: var(--green);
+  box-shadow: 0 10px 0 rgba(8, 8, 13, .14);
+}
+
+.mascot {
+  display: grid;
+  flex: 0 0 86px;
+  width: 86px;
+  height: 86px;
+  place-items: center;
+  border: 6px solid white;
+  border-radius: 42% 53% 45% 51%;
+  background: var(--yellow);
+  font-size: 34px;
+  font-weight: 900;
+  transform: rotate(-4deg);
+}
+
+h1, h2 { line-height: 1.2; letter-spacing: 0; }
+h1 { margin: 4px 0 0; font-size: clamp(32px, 7vw, 48px); }
+h2 { margin: 0 0 12px; font-size: 22px; }
+.eyebrow { margin: 0; font-weight: 900; }
+.updated { color: var(--muted); }
+
+section {
+  margin-top: 28px;
+  padding: 24px;
+  border-radius: 18px;
+  background: var(--paper);
+}
+
+.links { display: grid; gap: 12px; }
+.links a, .primary {
+  display: flex;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-radius: 14px;
+  color: white;
+  background: var(--ink);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.document > section:nth-of-type(3n + 1) { border-left: 8px solid var(--green); }
+.document > section:nth-of-type(3n + 2) { border-left: 8px solid var(--pink); }
+.document > section:nth-of-type(3n) { border-left: 8px solid var(--yellow); }
+.back, section a { color: var(--ink); font-weight: 800; }
+.primary { display: inline-flex; margin-top: 10px; color: white; }
+
+@media (max-width: 560px) {
+  main { padding-top: 24px; }
+  .hero { align-items: flex-start; padding: 22px; }
+  .mascot { flex-basis: 64px; width: 64px; height: 64px; font-size: 24px; }
+  section { padding: 20px; }
+}

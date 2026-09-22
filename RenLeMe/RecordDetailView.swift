@@ -8,6 +8,7 @@ struct RecordDetailView: View {
 
     @State private var isEditing = false
     @State private var isConfirmingDelete = false
+    @State private var feedbackMoment: MascotMoment?
 
     private var template: PropTemplate? {
         PropTemplate.matching(record: record)
@@ -20,12 +21,21 @@ struct RecordDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     summaryCard
+                    if record.status == .pending {
+                        cooldownDecisionCard
+                    }
                     detailsCard
                     noteCard
                 }
                 .padding(18)
             }
             .appScrollDefaults()
+
+            if let feedbackMoment {
+                MascotFeedbackPopup(moment: feedbackMoment) {
+                    hideFeedback()
+                }
+            }
         }
         .navigationTitle("记录详情")
         .navigationBarTitleDisplayMode(.inline)
@@ -44,12 +54,32 @@ struct RecordDetailView: View {
         }
         .confirmationDialog("删除这条记录？", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
             Button("删除", role: .destructive) {
+                CooldownCoordinator.cancel(recordId: record.id)
                 LocalImageStore.delete(record.customImagePath)
                 modelContext.delete(record)
                 dismiss()
             }
 
             Button("取消", role: .cancel) {}
+        }
+    }
+
+    private var cooldownDecisionCard: some View {
+        PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 16) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("冷静箱")
+                        .font(.rounded(22, weight: .black))
+                        .foregroundStyle(Color.ink)
+                    Spacer()
+                    MascotMomentView(moment: .coolingRecord, size: 52)
+                }
+
+                CooldownStatusLabel(record: record)
+                CooldownDecisionActions(record: record) { moment in
+                    showFeedback(moment)
+                }
+            }
         }
     }
 
@@ -65,7 +95,7 @@ struct RecordDetailView: View {
                         .lineLimit(3)
                         .minimumScaleFactor(0.76)
 
-                    Text(record.value.displayValue(for: record.type))
+                    Text(record.displayValueText)
                         .font(.rounded(36, weight: .black))
                         .foregroundStyle(textColor)
                         .lineLimit(1)
@@ -154,6 +184,22 @@ struct RecordDetailView: View {
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.dateFormat = "yyyy年M月d日 HH:mm"
         return formatter.string(from: date)
+    }
+
+    private func showFeedback(_ moment: MascotMoment) {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+            feedbackMoment = moment
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            hideFeedback()
+        }
+    }
+
+    private func hideFeedback() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            feedbackMoment = nil
+        }
     }
 }
 

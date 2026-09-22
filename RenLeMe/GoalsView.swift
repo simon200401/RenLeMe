@@ -104,8 +104,7 @@ struct GoalsView: View {
     }
 
     private func goalProgress(for goal: Goal) -> Double {
-        let targeted = StatsCalculator.currentValue(for: goal, records: records)
-        let current = targeted > 0 ? targeted : StatsCalculator.totalValue(for: goal.type, records: records)
+        let current = StatsCalculator.currentValue(for: goal, records: records)
         return current / max(goal.targetValue, 1)
     }
 
@@ -147,9 +146,7 @@ private struct GoalDetailCard: View {
     }
 
     private var current: Double {
-        let targeted = StatsCalculator.currentValue(for: goal, records: records)
-        if targeted > 0 { return targeted }
-        return StatsCalculator.totalValue(for: goal.type, records: records)
+        StatsCalculator.currentValue(for: goal, records: records)
     }
 
     private var progress: Double {
@@ -164,7 +161,7 @@ private struct GoalDetailCard: View {
         Button {
             isCompleted ? onCelebrate(.goalCompleted(goal.type)) : onEdit()
         } label: {
-            PunchyCard(fill: Color.blockColor(for: goal.type), cornerRadius: 32, padding: 18) {
+            PunchyCard(fill: cardColor, cornerRadius: 32, padding: 18) {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack(alignment: .top, spacing: 12) {
                         VStack(alignment: .leading, spacing: 8) {
@@ -198,7 +195,7 @@ private struct GoalDetailCard: View {
                             }
 
                             AnimatedXiaoRenView(
-                                color: goalMascotColor,
+                                color: cardColor,
                                 expression: goalMascotExpression,
                                 size: 54,
                                 reduceMotion: reduceMotion
@@ -270,15 +267,8 @@ private struct GoalDetailCard: View {
         return [.curious, .thinking, .sparkle][goalSeed % 3]
     }
 
-    private var goalMascotColor: Color {
-        switch goal.type {
-        case .money:
-            return Color(red: 1.0, green: 0.949, blue: 0.839)
-        case .food:
-            return .punchGreen
-        case .time:
-            return .punchPink
-        }
+    private var cardColor: Color {
+        Color.blockColor(for: goal.type)
     }
 }
 

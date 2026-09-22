@@ -25,6 +25,8 @@
 		A10000000000000000000017 /* WelcomeOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* WelcomeOnboardingView.swift */; };
 		A10000000000000000000018 /* LaunchSplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* LaunchSplashView.swift */; };
 		A10000000000000000000019 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000019 /* LaunchScreen.storyboard */; };
+		A10000000000000000000020 /* CooldownLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* CooldownLiveActivityManager.swift */; };
+		A10000000000000000000021 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -47,6 +49,11 @@
 		A20000000000000000000017 /* WelcomeOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeOnboardingView.swift; sourceTree = "<group>"; };
 		A20000000000000000000018 /* LaunchSplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchSplashView.swift; sourceTree = "<group>"; };
 		A20000000000000000000019 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		A20000000000000000000020 /* CooldownLiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CooldownLiveActivityManager.swift; sourceTree = "<group>"; };
+		A20000000000000000000021 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B20000000000000000000002 /* CooldownLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CooldownLiveActivityWidget.swift; sourceTree = "<group>"; };
+		B20000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C20000000000000000000001 /* CooldownActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CooldownActivityAttributes.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,6 +71,8 @@
 			isa = PBXGroup;
 			children = (
 				A40000000000000000000002 /* RenLeMe */,
+				C40000000000000000000001 /* RenLeMeShared */,
+				B40000000000000000000001 /* RenLeMeLiveActivityExtension */,
 				A40000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -85,6 +94,8 @@
 				A20000000000000000000006 /* RecordFlowView.swift */,
 				A20000000000000000000017 /* WelcomeOnboardingView.swift */,
 				A20000000000000000000018 /* LaunchSplashView.swift */,
+				A20000000000000000000020 /* CooldownLiveActivityManager.swift */,
+				A20000000000000000000021 /* PrivacyInfo.xcprivacy */,
 				A20000000000000000000019 /* LaunchScreen.storyboard */,
 				A20000000000000000000011 /* FoodPickerView.swift */,
 				A20000000000000000000007 /* GoalsView.swift */,
@@ -99,6 +110,23 @@
 				A20000000000000000000009 /* RenLeMe.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B40000000000000000000001 /* RenLeMeLiveActivityExtension */ = {
+			isa = PBXGroup;
+			children = (
+				B20000000000000000000002 /* CooldownLiveActivityWidget.swift */,
+				B20000000000000000000003 /* Info.plist */,
+			);
+			path = RenLeMeLiveActivityExtension;
+			sourceTree = "<group>";
+		};
+		C40000000000000000000001 /* RenLeMeShared */ = {
+			isa = PBXGroup;
+			children = (
+				C20000000000000000000001 /* CooldownActivityAttributes.swift */,
+			);
+			path = RenLeMeShared;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -162,6 +190,7 @@
 			files = (
 				A10000000000000000000016 /* Assets.xcassets in Resources */,
 				A10000000000000000000019 /* LaunchScreen.storyboard in Resources */,
+				A10000000000000000000021 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -182,6 +211,7 @@
 				A10000000000000000000010 /* FoodPickerView.swift in Sources */,
 				A10000000000000000000017 /* WelcomeOnboardingView.swift in Sources */,
 				A10000000000000000000018 /* LaunchSplashView.swift in Sources */,
+				A10000000000000000000020 /* CooldownLiveActivityManager.swift in Sources */,
 				A10000000000000000000013 /* EditRecordView.swift in Sources */,
 				A10000000000000000000007 /* GoalsView.swift in Sources */,
 				A10000000000000000000009 /* FoodSeedData.swift in Sources */,
@@ -323,6 +353,7 @@
 				DEVELOPMENT_TEAM = 37D28864BV;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "忍了么";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄自选道具图片，帮助你记录想忍住的冲动。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于从相册选择自选道具图片，帮助你记录想忍住的冲动。";
@@ -335,10 +366,10 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -351,6 +382,7 @@
 				DEVELOPMENT_TEAM = 37D28864BV;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "忍了么";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄自选道具图片，帮助你记录想忍住的冲动。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于从相册选择自选道具图片，帮助你记录想忍住的冲动。";
@@ -363,10 +395,10 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};

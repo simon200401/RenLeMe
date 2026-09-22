@@ -1,6 +1,6 @@
 # 忍了么 App Store 上架文案草稿
 
-更新时间：2026-05-19
+更新时间：2026-09-22
 
 这份文档用于后续提交 App Store Connect，可根据最终截图和功能继续调整。
 
@@ -96,12 +96,27 @@ Lifestyle / 生活
 - 是否用于追踪：否。
 - 是否关联用户身份：否。
 
+App Store Connect 填写建议：
+
+- 数据收集：选择“否，我们不会从此 App 收集数据”。
+- 跟踪：否。
+- 第三方广告：无。
+- 用户生成内容：无公开发布或社交功能。
+
 注意：最终填写必须以 App Store Connect 当前问题和实际实现为准。如果后续加入云同步、分析 SDK、AI 服务或账号系统，需要重新评估。
 
 ## 支持 URL
 
-待部署。
+使用 `release-site/support.html` 部署后的公开 HTTPS URL。
 
 ## 隐私政策 URL
 
-待部署，内容来源可使用 `PRIVACY_POLICY_DRAFT.md`。
+使用 `release-site/privacy.html` 部署后的公开 HTTPS URL。
+
+## 年龄分级填写参考
+
+当前功能不包含暴力、色情、粗俗语言、赌博、酒精烟草、恐怖内容、开放网页访问或公开用户生成内容，各项选择“无”。预计年龄分级为 4+，最终结果以 App Store Connect 自动计算为准。
+
+## 出口合规
+
+App 不实现自有加密功能，仅使用 Apple 系统能力。工程已设置 `ITSAppUsesNonExemptEncryption = NO`。

@@ -110,6 +110,7 @@ final class ResistRecord {
     var typeRaw: String
     var title: String
     var value: Double
+    var hasEstimatedValue: Bool = true
     var unitRaw: String
     var statusRaw: String
     var reason: String
@@ -133,6 +134,7 @@ final class ResistRecord {
         type: ResistType,
         title: String,
         value: Double,
+        hasEstimatedValue: Bool = true,
         status: ResistStatus,
         reason: String,
         createdAt: Date = .now,
@@ -154,6 +156,7 @@ final class ResistRecord {
         self.typeRaw = type.rawValue
         self.title = title
         self.value = value
+        self.hasEstimatedValue = hasEstimatedValue
         self.unitRaw = type.unit.rawValue
         self.statusRaw = status.rawValue
         self.reason = reason
@@ -197,6 +200,10 @@ final class ResistRecord {
             return PropIconKey(rawValue: propIconKeyRaw)
         }
         set { propIconKeyRaw = newValue?.rawValue }
+    }
+
+    var displayValueText: String {
+        hasEstimatedValue ? value.displayValue(for: type) : "待补充"
     }
 }
 

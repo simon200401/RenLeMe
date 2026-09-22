@@ -2,16 +2,21 @@ import SwiftData
 import SwiftUI
 
 struct HomeView: View {
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \ResistRecord.createdAt, order: .reverse) private var records: [ResistRecord]
     @Query(sort: \Goal.createdAt, order: .forward) private var goals: [Goal]
     @State private var editingGoal: Goal?
     @State private var completedGoalMoment: MascotMoment?
+    @AppStorage("homeAssetPeriod") private var assetPeriod: AssetPeriod = .week
+    @State private var recordToDelete: ResistRecord?
+    @State private var isConfirmingDelete = false
+    @State private var deleteFailed = false
 
     let onAddRecord: () -> Void
 
     private var assets: AssetSummary {
-        StatsCalculator.assets(from: records)
+        StatsCalculator.assets(from: records, period: assetPeriod)
     }
 
     private var todayCount: Int {
@@ -20,6 +25,14 @@ struct HomeView: View {
 
     private var recentRecords: [ResistRecord] {
         Array(records.prefix(5))
+    }
+
+    private var pendingRecords: [ResistRecord] {
+        records
+            .filter { $0.status == .pending }
+            .sorted {
+                ($0.cooldownUntil ?? .distantFuture) < ($1.cooldownUntil ?? .distantFuture)
+            }
     }
 
     private var completedWeekdays: Set<Int> {
@@ -34,6 +47,7 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     hero
+                    pendingSection
                     assetGrid
                     goalProgressSection
                     recentSection
@@ -68,6 +82,15 @@ struct HomeView: View {
         }
         .navigationTitle("忍了么")
         .navigationBarTitleDisplayMode(.inline)
+        .alert("删除这条记录？", isPresented: $isConfirmingDelete) {
+            Button("删除", role: .destructive) { deleteSelectedRecord() }
+            Button("取消", role: .cancel) { recordToDelete = nil }
+        } message: {
+            Text("「\(recordToDelete?.title ?? "这条记录")」删除后不可恢复，对应资产和目标进度会同步更新。")
+        }
+        .alert("删除失败，请重试", isPresented: $deleteFailed) {
+            Button("知道了", role: .cancel) {}
+        }
         .sheet(item: $editingGoal) { goal in
             NavigationStack {
                 EditGoalView(goal: goal)
@@ -80,7 +103,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Today: \(todayCount)/\(max(todayCount + 1, 1))")
+                        Text("Today: \(todayCount) 次")
                             .font(.rounded(30, weight: .black))
                             .foregroundStyle(Color.punchBlack)
 
@@ -107,12 +130,70 @@ struct HomeView: View {
                 .font(.rounded(34, weight: .black))
                 .foregroundStyle(Color.punchBlack)
 
+            Picker("资产时间范围", selection: $assetPeriod) {
+                ForEach(AssetPeriod.allCases) { period in
+                    Text(period.title).tag(period)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(minHeight: 44)
+            .accessibilityIdentifier("assetPeriodPicker")
+
             VStack(spacing: 12) {
                 AssetBlockCard(type: .money, value: assets.money.moneyString, subtitle: "")
                 HStack(spacing: 12) {
                     AssetBlockCard(type: .food, value: assets.calories.calorieString, subtitle: "")
                     AssetBlockCard(type: .time, value: assets.minutes.displayValue(for: .time), subtitle: "")
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var pendingSection: some View {
+        if let record = pendingRecords.first {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionHeader(title: "继续冷静")
+
+                NavigationLink {
+                    RecordDetailView(record: record)
+                } label: {
+                    PunchyCard(
+                        fill: Color.softBlockColor(for: record.type),
+                        cornerRadius: 26,
+                        padding: 14
+                    ) {
+                        HStack(spacing: 12) {
+                            RecordPropIconView(record: record, size: 52)
+
+                            VStack(alignment: .leading, spacing: 7) {
+                                Text(record.title)
+                                    .font(.rounded(19, weight: .black))
+                                    .foregroundStyle(Color.ink)
+                                    .lineLimit(1)
+
+                                CooldownStatusLabel(record: record)
+                            }
+
+                            Spacer(minLength: 6)
+
+                            if pendingRecords.count > 1 {
+                                Text("+\(pendingRecords.count - 1)")
+                                    .font(.rounded(14, weight: .black))
+                                    .foregroundStyle(Color.white)
+                                    .frame(width: 36, height: 36)
+                                    .background(Color.punchBlack)
+                                    .clipShape(Circle())
+                            } else {
+                                Image(systemName: "chevron.right")
+                                    .font(.rounded(14, weight: .black))
+                                    .foregroundStyle(Color.punchBlack)
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel("继续处理\(record.title)")
             }
         }
     }
@@ -162,18 +243,47 @@ struct HomeView: View {
                     EmptyStateView(title: "还没有记录", message: "", systemImage: "tray")
                 }
             } else {
-                VStack(spacing: 10) {
-                    ForEach(recentRecords) { record in
-                        NavigationLink {
-                            RecordDetailView(record: record)
+                ForEach(recentRecords) { record in
+                    NavigationLink {
+                        RecordDetailView(record: record)
+                    } label: {
+                        RecordRow(record: record)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            requestDeletion(of: record)
                         } label: {
-                            RecordRow(record: record)
+                            Label("删除记录", systemImage: "trash")
                         }
-                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .accessibilityAction(named: "删除记录") {
+                        requestDeletion(of: record)
                     }
                 }
             }
         }
+    }
+
+    private func requestDeletion(of record: ResistRecord) {
+        recordToDelete = record
+        isConfirmingDelete = true
+    }
+
+    private func deleteSelectedRecord() {
+        guard let record = recordToDelete else { return }
+        let id = record.id
+        let imagePath = record.customImagePath
+        modelContext.delete(record)
+        do {
+            try modelContext.save()
+            CooldownCoordinator.cancel(recordId: id)
+            LocalImageStore.delete(imagePath)
+        } catch {
+            modelContext.rollback()
+            deleteFailed = true
+        }
+        recordToDelete = nil
     }
 
     private func isGoalCompleted(_ goal: Goal) -> Bool {
@@ -181,8 +291,7 @@ struct HomeView: View {
     }
 
     private func goalProgress(for goal: Goal) -> Double {
-        let targeted = StatsCalculator.currentValue(for: goal, records: records)
-        let current = targeted > 0 ? targeted : StatsCalculator.totalValue(for: goal.type, records: records)
+        let current = StatsCalculator.currentValue(for: goal, records: records)
         return current / max(goal.targetValue, 1)
     }
 
@@ -217,9 +326,7 @@ private struct GoalProgressCard: View {
     var onTap: () -> Void = {}
 
     private var current: Double {
-        let targeted = StatsCalculator.currentValue(for: goal, records: records)
-        if targeted > 0 { return targeted }
-        return StatsCalculator.totalValue(for: goal.type, records: records)
+        StatsCalculator.currentValue(for: goal, records: records)
     }
 
     private var progress: Double {
@@ -329,6 +436,6 @@ struct RecordRow: View {
     }
 
     private var recordValueText: String {
-        record.value.displayValue(for: record.type)
+        record.displayValueText
     }
 }

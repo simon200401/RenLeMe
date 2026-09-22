@@ -46,6 +46,7 @@ App 把“忍住”转化成三类可见资产：
 - 更完整的趋势图表。
 - 冷静箱提醒设置页。
 - 用户自建食物库编辑入口。
+- 小忍冷静箱 Live Activity / 灵动岛展示暂不进入 v1，扩展源码保留但未接入主 App。
 
 ## 技术栈
 
@@ -251,6 +252,7 @@ outputs/manual-portfolio/presentations/renleme-portfolio/assets/app-screens/
 RELEASE_READINESS.md
 PRIVACY_POLICY_DRAFT.md
 APP_STORE_LISTING_DRAFT.md
+DYNAMIC_ISLAND_DESIGN.md
 ```
 
 ## 运行和验证

@@ -384,12 +384,14 @@ Demo 记录：
 - 目标 deadline 的完整 UI。
 - 隐私政策 URL、支持 URL 和 App Store 上架材料。
 - 用户自建食物库编辑入口。
+- 小忍冷静箱 Live Activity / 灵动岛展示暂不进入 v1，扩展源码保留但未接入主 App。
 
 已新增但仍需外部部署：
 
 - `RELEASE_READINESS.md`
 - `PRIVACY_POLICY_DRAFT.md`
 - `APP_STORE_LISTING_DRAFT.md`
+- `DYNAMIC_ISLAND_DESIGN.md`
 
 隐私政策草稿需要在提交 App Store 前部署为公开 URL。
 
@@ -409,7 +411,7 @@ Demo 记录：
 - P1：真机体验、滚动、键盘、触控、图片权限。
 - P2：隐私 URL、支持 URL、App Store 截图和上架材料。
 - P3：统计增强、冷静箱设置、用户自建食物库。
-- P4：云同步、账号、AI 教练等长期能力。
+- P4：小忍灵动岛、云同步、账号、AI 教练等长期能力。
 
 ## 14. 验证命令
 

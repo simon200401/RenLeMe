@@ -20,7 +20,7 @@ struct EditRecordView: View {
     init(record: ResistRecord) {
         self.record = record
         _title = State(initialValue: record.title)
-        _valueText = State(initialValue: record.value.cleanString)
+        _valueText = State(initialValue: record.hasEstimatedValue ? record.value.cleanString : "")
         _selectedStatus = State(initialValue: record.status)
         _selectedReason = State(initialValue: record.reason)
         _note = State(initialValue: record.note)
@@ -51,11 +51,9 @@ struct EditRecordView: View {
     }
 
     private var canSave: Bool {
-        if record.type == .food {
-            return !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && calculatedFoodCalories > 0
-        }
-
-        return !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && parsedValue > 0
+        let hasTitle = !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasValue = record.type == .food ? max(calculatedFoodCalories, parsedValue) > 0 : parsedValue > 0
+        return hasTitle && (selectedStatus == .pending || hasValue)
     }
 
     var body: some View {
@@ -304,6 +302,8 @@ struct EditRecordView: View {
     }
 
     private func save() {
+        let previousStatus = record.status
+        let previousCooldownUntil = record.cooldownUntil
         record.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         record.status = selectedStatus
         record.reason = selectedReason
@@ -316,9 +316,11 @@ struct EditRecordView: View {
 
         if selectedStatus == .pending {
             record.resolvedAt = nil
-            record.cooldownUntil = Date().addingTimeInterval(record.type.cooldownSeconds)
+            record.cooldownUntil = previousStatus == .pending
+                ? previousCooldownUntil ?? Date().addingTimeInterval(record.type.cooldownSeconds)
+                : Date().addingTimeInterval(record.type.cooldownSeconds)
             record.enteredCooldown = true
-        } else if record.resolvedAt == nil {
+        } else if previousStatus == .pending || record.resolvedAt == nil {
             record.resolvedAt = .now
             record.cooldownUntil = nil
         } else {
@@ -327,7 +329,8 @@ struct EditRecordView: View {
 
         if record.type == .food {
             record.value = calculatedFoodCalories > 0 ? calculatedFoodCalories : parsedValue
-            record.foodServingGrams = parsedServingGrams > 0 ? parsedServingGrams : record.foodServingGrams
+            record.hasEstimatedValue = record.value > 0
+            record.foodServingGrams = parsedServingGrams > 0 ? parsedServingGrams : nil
             if let selectedFood {
                 record.foodNutritionItemId = selectedFood.id
                 record.foodSourceName = selectedFood.sourceName
@@ -336,6 +339,13 @@ struct EditRecordView: View {
             }
         } else {
             record.value = parsedValue
+            record.hasEstimatedValue = parsedValue > 0
+        }
+
+        if selectedStatus == .pending {
+            CooldownCoordinator.schedule(for: record)
+        } else {
+            CooldownCoordinator.cancel(recordId: record.id)
         }
     }
 }

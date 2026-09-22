@@ -6,6 +6,7 @@ struct ProfileView: View {
     @Query(sort: \ResistRecord.createdAt, order: .reverse) private var records: [ResistRecord]
     @State private var pendingFeedbackMoment: MascotMoment?
     @State private var pendingFeedbackMessage: String?
+    @State private var isShowingDataPrivacy = false
     var onShowWelcome: () -> Void = {}
 
     private var weekRecords: [ResistRecord] {
@@ -17,7 +18,11 @@ struct ProfileView: View {
     }
 
     private var pendingRecords: [ResistRecord] {
-        records.filter { $0.status == .pending }
+        records
+            .filter { $0.status == .pending }
+            .sorted {
+                ($0.cooldownUntil ?? .distantFuture) < ($1.cooldownUntil ?? .distantFuture)
+            }
     }
 
     private var dailyCounts: [Int] {
@@ -25,11 +30,11 @@ struct ProfileView: View {
     }
 
     private var currentStreak: Int {
-        StatsCalculator.currentStreak(in: records)
+        StatsCalculator.currentRecordStreak(in: records)
     }
 
-    private var strongestTypeThisWeek: ResistType? {
-        StatsCalculator.strongestTypeThisWeek(in: records)
+    private var mostFrequentTypeThisWeek: ResistType? {
+        StatsCalculator.mostFrequentResistedTypeThisWeek(in: records)
     }
 
     private var unlockedBadgeCount: Int {
@@ -47,7 +52,7 @@ struct ProfileView: View {
             AchievementBadge(
                 title: "连续记录",
                 iconKey: .calendar,
-                unlocked: currentStreak >= 3 || weekRecords.count >= 3,
+                unlocked: currentStreak >= 3,
                 message: "已点亮"
             ),
             AchievementBadge(
@@ -72,9 +77,10 @@ struct ProfileView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     reflectionCard
+                    pendingCard
                     statsCard
                     badgesCard
-                    pendingCard
+                    dataPrivacyCard
                     helpCard
                 }
                 .padding(18)
@@ -89,6 +95,11 @@ struct ProfileView: View {
             }
         }
         .navigationTitle("我的")
+        .sheet(isPresented: $isShowingDataPrivacy) {
+            NavigationStack {
+                DataPrivacyView()
+            }
+        }
     }
 
     private var reflectionCard: some View {
@@ -134,14 +145,14 @@ struct ProfileView: View {
                 ReviewMomentumPanel(
                     dailyCounts: dailyCounts,
                     currentStreak: currentStreak,
-                    strongestType: strongestTypeThisWeek,
+                    mostFrequentType: mostFrequentTypeThisWeek,
                     reduceMotion: reduceMotion
                 )
                 .onTapGesture {
                     showPendingFeedback(
                         currentStreak > 0 ? .resistedSuccess : .reviewCalm,
                         message: currentStreak > 0
-                            ? "连续 \(currentStreak) 天"
+                            ? "连续记录 \(currentStreak) 天"
                             : "开始复盘"
                     )
                 }
@@ -245,6 +256,34 @@ struct ProfileView: View {
         }
     }
 
+    private var dataPrivacyCard: some View {
+        PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 16) {
+            Button {
+                isShowingDataPrivacy = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.rounded(24, weight: .black))
+                        .foregroundStyle(Color.punchBlack)
+                        .frame(width: 52, height: 52)
+                        .background(Color.punchYellow)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                    Text("数据与隐私")
+                        .font(.rounded(18, weight: .black))
+                        .foregroundStyle(Color.ink)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.rounded(14, weight: .black))
+                        .foregroundStyle(Color.punchBlack)
+                }
+            }
+            .buttonStyle(PressableScaleStyle())
+        }
+    }
+
     private func showPendingFeedback(_ moment: MascotMoment, message: String? = nil) {
         if reduceMotion {
             pendingFeedbackMoment = moment
@@ -269,6 +308,76 @@ struct ProfileView: View {
             withAnimation(.easeOut(duration: 0.2)) {
                 pendingFeedbackMoment = nil
                 pendingFeedbackMessage = nil
+            }
+        }
+    }
+}
+
+private struct DataPrivacyView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    privacyBlock(
+                        icon: "iphone.gen3",
+                        title: "数据保存在本机",
+                        text: "记录、目标、自选图片和食物数据不会上传到服务器。删除 App 可能同时删除这些数据。",
+                        fill: .punchGreen
+                    )
+                    privacyBlock(
+                        icon: "camera.fill",
+                        title: "相机与相册",
+                        text: "只在你主动为自选道具拍照或选图时使用。",
+                        fill: .punchPink
+                    )
+                    privacyBlock(
+                        icon: "bell.fill",
+                        title: "通知",
+                        text: "只用于冷静箱到期后的本地提醒，可随时在系统设置中关闭。",
+                        fill: .punchYellow
+                    )
+                    privacyBlock(
+                        icon: "hand.raised.fill",
+                        title: "没有广告追踪",
+                        text: "当前版本不需要账号，不读取支付账单或健康数据，也不使用广告追踪。",
+                        fill: .cream
+                    )
+                }
+                .padding(18)
+            }
+            .appScrollDefaults()
+        }
+        .navigationTitle("数据与隐私")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("完成") { dismiss() }
+                    .font(.rounded(15, weight: .black))
+            }
+        }
+    }
+
+    private func privacyBlock(icon: String, title: String, text: String, fill: Color) -> some View {
+        PunchyCard(fill: fill, cornerRadius: 26, padding: 16) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: icon)
+                    .font(.rounded(24, weight: .black))
+                    .foregroundStyle(Color.punchBlack)
+                    .frame(width: 44, height: 44)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.rounded(18, weight: .black))
+                        .foregroundStyle(Color.ink)
+                    Text(text)
+                        .font(.rounded(14, weight: .bold))
+                        .foregroundStyle(Color.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
@@ -313,7 +422,7 @@ private struct SmallStat: View {
 private struct ReviewMomentumPanel: View {
     let dailyCounts: [Int]
     let currentStreak: Int
-    let strongestType: ResistType?
+    let mostFrequentType: ResistType?
     let reduceMotion: Bool
     @State private var isAlive = false
 
@@ -328,11 +437,11 @@ private struct ReviewMomentumPanel: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 8) {
-                Text(currentStreak > 0 ? "连续 \(currentStreak) 天" : "开始复盘")
+                Text(currentStreak > 0 ? "连续记录 \(currentStreak) 天" : "开始复盘")
                     .font(.rounded(20, weight: .black))
                     .foregroundStyle(Color.ink)
 
-                Text(strongestText)
+                Text(frequencyText)
                     .font(.rounded(13, weight: .bold))
                     .foregroundStyle(Color.secondaryInk)
                     .lineLimit(2)
@@ -365,19 +474,19 @@ private struct ReviewMomentumPanel: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(Color.punchBlack.opacity(0.08), lineWidth: 1)
         }
-        .accessibilityLabel("复盘趋势，本周 \(totalThisWeek) 次，连续 \(currentStreak) 天")
+        .accessibilityLabel("复盘趋势，本周忍住 \(totalThisWeek) 次，连续记录 \(currentStreak) 天")
         .onAppear {
             guard !reduceMotion else { return }
             isAlive = true
         }
     }
 
-    private var strongestText: String {
-        guard let strongestType else {
-            return totalThisWeek > 0 ? "本周已经有 \(totalThisWeek) 次选择被记录。" : "还没有趋势，先从一次记录开始。"
+    private var frequencyText: String {
+        guard let mostFrequentType else {
+            return totalThisWeek > 0 ? "本周忍住 \(totalThisWeek) 次。" : "还没有趋势，先从一次记录开始。"
         }
 
-        return "本周最常拿回的是\(strongestType.assetTitle)。"
+        return "本周忍住最多的是\(mostFrequentType.title)类。"
     }
 
     private func barHeight(for count: Int) -> CGFloat {
@@ -483,42 +592,8 @@ private struct PendingRecordRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             RecordRow(record: record)
-
-            HStack(spacing: 10) {
-                Button {
-                    record.status = .resisted
-                    record.resolvedAt = .now
-                    record.cooldownUntil = nil
-                    AppHaptics.success()
-                    onResolve(.resistedSuccess)
-                } label: {
-                    Text("我忍住了")
-                        .font(.rounded(15, weight: .black))
-                        .foregroundStyle(Color.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.punchBlack)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(PressableScaleStyle())
-
-                Button {
-                    record.status = .gaveIn
-                    record.resolvedAt = .now
-                    record.cooldownUntil = nil
-                    AppHaptics.lightTap()
-                    onResolve(.gaveInSaved)
-                } label: {
-                    Text("我还是做了")
-                        .font(.rounded(15, weight: .black))
-                        .foregroundStyle(Color.punchBlack)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.cream)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(PressableScaleStyle())
-            }
+            CooldownStatusLabel(record: record)
+            CooldownDecisionActions(record: record, onFeedback: onResolve)
         }
     }
 }
