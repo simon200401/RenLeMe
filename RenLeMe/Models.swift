@@ -215,6 +215,7 @@ final class Goal {
     var targetValue: Double
     var deadline: Date?
     var icon: String
+    var customImagePath: String?
     var createdAt: Date
 
     init(
@@ -224,6 +225,7 @@ final class Goal {
         targetValue: Double,
         deadline: Date? = nil,
         icon: String,
+        customImagePath: String? = nil,
         createdAt: Date = .now
     ) {
         self.id = id
@@ -232,6 +234,7 @@ final class Goal {
         self.targetValue = targetValue
         self.deadline = deadline
         self.icon = icon
+        self.customImagePath = customImagePath
         self.createdAt = createdAt
     }
 

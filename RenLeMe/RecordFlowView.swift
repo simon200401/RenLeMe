@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 import UIKit
 
-private enum CustomImageSource: String, Identifiable {
+enum CustomImageSource: String, Identifiable {
     case camera
     case photoLibrary
 
@@ -830,7 +830,7 @@ private struct DecisionButtonLabel: View {
     }
 }
 
-private struct CameraImagePicker: UIViewControllerRepresentable {
+struct CameraImagePicker: UIViewControllerRepresentable {
     @Environment(\.dismiss) private var dismiss
     @Binding var image: UIImage?
     let sourceType: UIImagePickerController.SourceType

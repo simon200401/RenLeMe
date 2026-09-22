@@ -428,6 +428,30 @@ struct RecordPropIconView: View {
     }
 }
 
+struct GoalIconView: View {
+    let goal: Goal
+    var size: CGFloat = 68
+
+    var body: some View {
+        if let image = LocalImageStore.image(at: goal.customImagePath) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: size, height: size)
+                .clipShape(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
+                        .stroke(Color.punchBlack, lineWidth: max(2, size * 0.045))
+                }
+                .shadow(color: .punchBlack.opacity(0.14), radius: 0, x: 0, y: max(2, size * 0.06))
+        } else if let template = PropTemplate.matching(goal: goal) {
+            PropIconView(template: template, size: size)
+        } else {
+            PropIconView(template: PropTemplate.defaultTemplate(for: goal.type), size: size)
+        }
+    }
+}
+
 struct BlobMascotView: View {
     let color: Color
     var mood: MascotMood = .steady

@@ -341,11 +341,7 @@ private struct GoalProgressCard: View {
         Button(action: onTap) {
             PunchyCard(fill: Color.softBlockColor(for: goal.type), cornerRadius: 28, padding: 16) {
                 HStack(spacing: 14) {
-                    if let template = PropTemplate.matching(goal: goal) {
-                        PropIconView(template: template, size: 68)
-                    } else {
-                        PropIconView(template: PropTemplate.defaultTemplate(for: goal.type), size: 68)
-                    }
+                    GoalIconView(goal: goal, size: 68)
 
                     VStack(alignment: .leading, spacing: 9) {
                         HStack(spacing: 10) {

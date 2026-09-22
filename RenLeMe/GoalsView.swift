@@ -38,7 +38,7 @@ struct GoalsView: View {
                                         }
 
                                         Button(role: .destructive) {
-                                            modelContext.delete(goal)
+                                            deleteGoal(goal)
                                         } label: {
                                             Label("删除目标", systemImage: "trash")
                                         }
@@ -131,6 +131,17 @@ struct GoalsView: View {
             }
         }
     }
+
+    private func deleteGoal(_ goal: Goal) {
+        let imagePath = goal.customImagePath
+        modelContext.delete(goal)
+        do {
+            try modelContext.save()
+            LocalImageStore.delete(imagePath)
+        } catch {
+            modelContext.rollback()
+        }
+    }
 }
 
 private struct GoalDetailCard: View {
@@ -140,10 +151,6 @@ private struct GoalDetailCard: View {
     var onEdit: () -> Void = {}
     var onCelebrate: (MascotMoment) -> Void = { _ in }
     @State private var pulse = false
-
-    private var template: PropTemplate? {
-        PropTemplate.matching(goal: goal)
-    }
 
     private var current: Double {
         StatsCalculator.currentValue(for: goal, records: records)
@@ -188,11 +195,7 @@ private struct GoalDetailCard: View {
                         Spacer()
 
                         ZStack(alignment: .bottomTrailing) {
-                            if let template {
-                                PropIconView(template: template, size: 78)
-                            } else {
-                                PropIconView(template: PropTemplate.defaultTemplate(for: goal.type), size: 78)
-                            }
+                            GoalIconView(goal: goal, size: 78)
 
                             AnimatedXiaoRenView(
                                 color: cardColor,
@@ -272,6 +275,186 @@ private struct GoalDetailCard: View {
     }
 }
 
+private enum GoalTimeInputUnit: String, CaseIterable, Identifiable {
+    case minute
+    case hour
+
+    var id: String { rawValue }
+    var title: String { self == .minute ? "min" : "hour" }
+    var minuteMultiplier: Double { self == .minute ? 1 : 60 }
+}
+
+private extension ResistType {
+    var defaultGoalSystemIcon: String {
+        switch self {
+        case .money: "wallet.pass.fill"
+        case .food: "fork.knife"
+        case .time: "clock.fill"
+        }
+    }
+}
+
+private struct GoalValueInput: View {
+    @Binding var text: String
+    let type: ResistType
+    @Binding var timeUnit: GoalTimeInputUnit
+
+    var body: some View {
+        VStack(spacing: 10) {
+            if type == .time {
+                Picker("时间单位", selection: $timeUnit) {
+                    ForEach(GoalTimeInputUnit.allCases) { unit in
+                        Text(unit.title).tag(unit)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(minHeight: 44)
+            }
+
+            HStack(spacing: 10) {
+                ZStack(alignment: .leading) {
+                    if text.isEmpty {
+                        Text(placeholder)
+                            .font(.rounded(16, weight: .black))
+                            .foregroundStyle(Color.fieldPlaceholderInk)
+                            .allowsHitTesting(false)
+                    }
+
+                    TextField("", text: $text)
+                        .appInputTextStyle()
+                        .keyboardType(.decimalPad)
+                }
+
+                Text(displayUnit)
+                    .font(.rounded(15, weight: .black))
+                    .foregroundStyle(Color.fieldPlaceholderInk)
+            }
+            .padding(14)
+            .background(Color.cream)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+    }
+
+    private var placeholder: String {
+        switch type {
+        case .money: "例如 3000"
+        case .food: "例如 900"
+        case .time: timeUnit == .minute ? "例如 30" : "例如 5"
+        }
+    }
+
+    private var displayUnit: String {
+        switch type {
+        case .money: "元"
+        case .food: "kcal"
+        case .time: timeUnit.title
+        }
+    }
+}
+
+private struct GoalImagePickerSection: View {
+    let type: ResistType
+    let image: UIImage?
+    let onPhotoLibrary: () -> Void
+    let onCamera: () -> Void
+    let onRemove: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("目标图片")
+                .font(.rounded(15, weight: .black))
+                .foregroundStyle(Color.secondaryInk)
+
+            HStack(spacing: 14) {
+                preview
+
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        sourceButton(title: "相册", systemImage: "photo.fill", action: onPhotoLibrary)
+
+                        sourceButton(
+                            title: UIImagePickerController.isSourceTypeAvailable(.camera) ? "拍照" : "真机拍照",
+                            systemImage: "camera.fill",
+                            action: onCamera
+                        )
+                        .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
+                        .opacity(UIImagePickerController.isSourceTypeAvailable(.camera) ? 1 : 0.45)
+                    }
+
+                    if image != nil {
+                        Button("移除照片", role: .destructive, action: onRemove)
+                            .font(.rounded(13, weight: .black))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var preview: some View {
+        if let image {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 82, height: 82)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.punchBlack, lineWidth: 3)
+                }
+        } else {
+            PropIconView(template: PropTemplate.defaultTemplate(for: type), size: 82)
+        }
+    }
+
+    private func sourceButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.rounded(13, weight: .black))
+                .foregroundStyle(Color.punchBlack)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+                .background(Color.softBlockColor(for: type))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(PressableScaleStyle())
+    }
+}
+
+private struct GoalTypePicker: View {
+    @Binding var type: ResistType
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("类型")
+                .font(.rounded(15, weight: .black))
+                .foregroundStyle(Color.secondaryInk)
+
+            HStack(spacing: 10) {
+                ForEach(ResistType.allCases) { option in
+                    Button {
+                        type = option
+                    } label: {
+                        Text(option.title)
+                            .font(.rounded(15, weight: .black))
+                            .foregroundStyle(Color.punchBlack)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(type == option ? Color.softBlockColor(for: option) : Color.cream)
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .stroke(Color.punchBlack, lineWidth: type == option ? 2 : 0)
+                            }
+                    }
+                    .buttonStyle(PressableScaleStyle())
+                }
+            }
+        }
+    }
+}
+
 private struct AddGoalView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -279,10 +462,14 @@ private struct AddGoalView: View {
     @State private var title = ""
     @State private var type: ResistType = .money
     @State private var targetValue = ""
-    @State private var icon = "target"
+    @State private var timeUnit: GoalTimeInputUnit = .hour
+    @State private var goalImage: UIImage?
+    @State private var imageSource: CustomImageSource?
+    @State private var saveFailed = false
 
     private var parsedTarget: Double {
-        Double(targetValue.replacingOccurrences(of: ",", with: "")) ?? 0
+        let rawValue = Double(targetValue.replacingOccurrences(of: ",", with: "")) ?? 0
+        return type == .time ? rawValue * timeUnit.minuteMultiplier : rawValue
     }
 
     private var canSave: Bool {
@@ -290,6 +477,30 @@ private struct AddGoalView: View {
     }
 
     var body: some View {
+        goalForm(titleText: "New goal", mascot: MascotMomentView(moment: .idle, size: 74))
+            .navigationTitle("新目标")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                        .font(.rounded(15, weight: .black))
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存", action: saveGoal)
+                        .disabled(!canSave)
+                        .font(.rounded(15, weight: .black))
+                }
+            }
+            .sheet(item: $imageSource) { source in
+                CameraImagePicker(image: $goalImage, sourceType: source.sourceType)
+            }
+            .alert("目标保存失败", isPresented: $saveFailed) {
+                Button("知道了", role: .cancel) {}
+            }
+    }
+
+    private func goalForm<Mascot: View>(titleText: String, mascot: Mascot) -> some View {
         ZStack {
             Color.appBackground.ignoresSafeArea()
 
@@ -297,63 +508,30 @@ private struct AddGoalView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     PunchyCard(fill: Color.blockColor(for: type), cornerRadius: 34, padding: 20) {
                         HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("New goal")
-                                    .font(.rounded(38, weight: .black))
-                                    .foregroundStyle(type == .time ? Color.punchBlack : .white)
-                            }
+                            Text(titleText)
+                                .font(.rounded(38, weight: .black))
+                                .foregroundStyle(type == .time ? Color.punchBlack : .white)
                             Spacer()
-                            MascotMomentView(moment: .idle, size: 74)
+                            mascot
                         }
                     }
 
                     PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 16) {
                         VStack(alignment: .leading, spacing: 16) {
                             labeledField("目标标题") {
-                                TextField("比如：旅行基金", text: $title)
-                                    .appInputTextStyle()
+                                AppTextField(placeholder: "比如：旅行基金", text: $title)
                             }
-
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("类型")
-                                    .font(.rounded(15, weight: .black))
-                                    .foregroundStyle(Color.secondaryInk)
-
-                                HStack(spacing: 10) {
-                                    ForEach(ResistType.allCases) { option in
-                                        Button {
-                                            type = option
-                                        } label: {
-                                            Text(option.title)
-                                                .font(.rounded(15, weight: .black))
-                                                .foregroundStyle(Color.punchBlack)
-                                                .frame(maxWidth: .infinity)
-                                                .padding(.vertical, 12)
-                                                .background(type == option ? Color.softBlockColor(for: option) : Color.cream)
-                                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                                                .overlay {
-                                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                                        .stroke(Color.punchBlack, lineWidth: type == option ? 2 : 0)
-                                                }
-                                        }
-                                        .buttonStyle(PressableScaleStyle())
-                                    }
-                                }
-                            }
-
+                            GoalTypePicker(type: $type)
                             labeledField("目标值") {
-                                TextField("例如 3000", text: $targetValue)
-                                    .appInputTextStyle()
-                                    .keyboardType(.decimalPad)
+                                GoalValueInput(text: $targetValue, type: type, timeUnit: $timeUnit)
                             }
-
-                            Picker("图标", selection: $icon) {
-                                Text("目标").tag("target")
-                                Text("相机").tag("camera.fill")
-                                Text("杯子").tag("cup.and.saucer.fill")
-                                Text("月亮").tag("moon.stars.fill")
-                                Text("书").tag("book.fill")
-                            }
+                            GoalImagePickerSection(
+                                type: type,
+                                image: goalImage,
+                                onPhotoLibrary: { openImageSource(.photoLibrary) },
+                                onCamera: { openImageSource(.camera) },
+                                onRemove: { goalImage = nil }
+                            )
                         }
                     }
                 }
@@ -361,25 +539,37 @@ private struct AddGoalView: View {
             }
             .appScrollDefaults()
         }
-        .navigationTitle("新目标")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("取消") {
-                    dismiss()
-                }
-                .font(.rounded(15, weight: .black))
-            }
+    }
 
-            ToolbarItem(placement: .confirmationAction) {
-                Button("保存") {
-                    modelContext.insert(Goal(title: title, type: type, targetValue: parsedTarget, icon: icon))
-                    dismiss()
-                }
-                .disabled(!canSave)
-                .font(.rounded(15, weight: .black))
-            }
+    private func saveGoal() {
+        let imagePath = LocalImageStore.save(goalImage)
+        guard goalImage == nil || imagePath != nil else {
+            saveFailed = true
+            return
         }
+
+        let goal = Goal(
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            type: type,
+            targetValue: parsedTarget,
+            icon: type.defaultGoalSystemIcon,
+            customImagePath: imagePath
+        )
+        modelContext.insert(goal)
+
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            modelContext.rollback()
+            LocalImageStore.delete(imagePath)
+            saveFailed = true
+        }
+    }
+
+    private func openImageSource(_ source: CustomImageSource) {
+        guard UIImagePickerController.isSourceTypeAvailable(source.sourceType) else { return }
+        imageSource = source
     }
 
     private func labeledField<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -387,35 +577,41 @@ private struct AddGoalView: View {
             Text(title)
                 .font(.rounded(15, weight: .black))
                 .foregroundStyle(Color.secondaryInk)
-
             content()
-                .padding(14)
-                .background(Color.cream)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
     }
 }
 
 struct EditGoalView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     let goal: Goal
 
     @State private var title: String
     @State private var type: ResistType
     @State private var targetValue: String
-    @State private var icon: String
+    @State private var timeUnit: GoalTimeInputUnit
+    @State private var goalImage: UIImage?
+    @State private var imageSource: CustomImageSource?
+    @State private var imageWasChanged = false
+    @State private var saveFailed = false
 
     init(goal: Goal) {
         self.goal = goal
+        let storesHours = goal.type == .time
+            && goal.targetValue >= 60
+            && goal.targetValue.truncatingRemainder(dividingBy: 60) == 0
         _title = State(initialValue: goal.title)
         _type = State(initialValue: goal.type)
-        _targetValue = State(initialValue: goal.targetValue.cleanString)
-        _icon = State(initialValue: goal.icon)
+        _timeUnit = State(initialValue: storesHours ? .hour : .minute)
+        _targetValue = State(initialValue: (storesHours ? goal.targetValue / 60 : goal.targetValue).cleanString)
+        _goalImage = State(initialValue: LocalImageStore.image(at: goal.customImagePath))
     }
 
     private var parsedTarget: Double {
-        Double(targetValue.replacingOccurrences(of: ",", with: "")) ?? 0
+        let rawValue = Double(targetValue.replacingOccurrences(of: ",", with: "")) ?? 0
+        return type == .time ? rawValue * timeUnit.minuteMultiplier : rawValue
     }
 
     private var canSave: Bool {
@@ -430,11 +626,9 @@ struct EditGoalView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     PunchyCard(fill: Color.blockColor(for: type), cornerRadius: 34, padding: 20) {
                         HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Edit goal")
-                                    .font(.rounded(38, weight: .black))
-                                    .foregroundStyle(type == .time ? Color.punchBlack : .white)
-                            }
+                            Text("Edit goal")
+                                .font(.rounded(38, weight: .black))
+                                .foregroundStyle(type == .time ? Color.punchBlack : .white)
                             Spacer()
                             AnimatedXiaoRenView(color: type.v2MascotColor, expression: .thinking, size: 74)
                         }
@@ -445,45 +639,20 @@ struct EditGoalView: View {
                             labeledField("目标标题") {
                                 AppTextField(placeholder: "比如：旅行基金", text: $title)
                             }
-
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("类型")
-                                    .font(.rounded(15, weight: .black))
-                                    .foregroundStyle(Color.secondaryInk)
-
-                                HStack(spacing: 10) {
-                                    ForEach(ResistType.allCases) { option in
-                                        Button {
-                                            type = option
-                                        } label: {
-                                            Text(option.title)
-                                                .font(.rounded(15, weight: .black))
-                                                .foregroundStyle(Color.punchBlack)
-                                                .frame(maxWidth: .infinity)
-                                                .padding(.vertical, 12)
-                                                .background(type == option ? Color.softBlockColor(for: option) : Color.cream)
-                                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                                                .overlay {
-                                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                                        .stroke(Color.punchBlack, lineWidth: type == option ? 2 : 0)
-                                                }
-                                        }
-                                        .buttonStyle(PressableScaleStyle())
-                                    }
-                                }
-                            }
-
+                            GoalTypePicker(type: $type)
                             labeledField("目标值") {
-                                AppTextField(placeholder: "例如 3000", text: $targetValue, keyboardType: .decimalPad)
+                                GoalValueInput(text: $targetValue, type: type, timeUnit: $timeUnit)
                             }
-
-                            Picker("图标", selection: $icon) {
-                                Text("目标").tag("target")
-                                Text("相机").tag("camera.fill")
-                                Text("杯子").tag("cup.and.saucer.fill")
-                                Text("月亮").tag("moon.stars.fill")
-                                Text("书").tag("book.fill")
-                            }
+                            GoalImagePickerSection(
+                                type: type,
+                                image: goalImage,
+                                onPhotoLibrary: { openImageSource(.photoLibrary) },
+                                onCamera: { openImageSource(.camera) },
+                                onRemove: {
+                                    goalImage = nil
+                                    imageWasChanged = true
+                                }
+                            )
                         }
                     }
                 }
@@ -495,24 +664,62 @@ struct EditGoalView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("取消") {
-                    dismiss()
-                }
-                .font(.rounded(15, weight: .black))
+                Button("取消") { dismiss() }
+                    .font(.rounded(15, weight: .black))
             }
 
             ToolbarItem(placement: .confirmationAction) {
-                Button("保存") {
-                    goal.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
-                    goal.type = type
-                    goal.targetValue = parsedTarget
-                    goal.icon = icon
-                    dismiss()
-                }
-                .disabled(!canSave)
-                .font(.rounded(15, weight: .black))
+                Button("保存", action: saveChanges)
+                    .disabled(!canSave)
+                    .font(.rounded(15, weight: .black))
             }
         }
+        .sheet(item: $imageSource) { source in
+            CameraImagePicker(image: $goalImage, sourceType: source.sourceType) {
+                imageWasChanged = true
+            }
+        }
+        .alert("目标保存失败", isPresented: $saveFailed) {
+            Button("知道了", role: .cancel) {}
+        }
+    }
+
+    private func saveChanges() {
+        let oldImagePath = goal.customImagePath
+        var newImagePath: String?
+
+        if imageWasChanged, let goalImage {
+            guard let savedPath = LocalImageStore.save(goalImage) else {
+                saveFailed = true
+                return
+            }
+            newImagePath = savedPath
+        }
+
+        goal.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        goal.type = type
+        goal.targetValue = parsedTarget
+        goal.icon = type.defaultGoalSystemIcon
+        if imageWasChanged {
+            goal.customImagePath = newImagePath
+        }
+
+        do {
+            try modelContext.save()
+            if imageWasChanged, oldImagePath != newImagePath {
+                LocalImageStore.delete(oldImagePath)
+            }
+            dismiss()
+        } catch {
+            modelContext.rollback()
+            LocalImageStore.delete(newImagePath)
+            saveFailed = true
+        }
+    }
+
+    private func openImageSource(_ source: CustomImageSource) {
+        guard UIImagePickerController.isSourceTypeAvailable(source.sourceType) else { return }
+        imageSource = source
     }
 
     private func labeledField<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -520,7 +727,6 @@ struct EditGoalView: View {
             Text(title)
                 .font(.rounded(15, weight: .black))
                 .foregroundStyle(Color.secondaryInk)
-
             content()
         }
     }
