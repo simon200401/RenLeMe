@@ -50,7 +50,7 @@ RenLeMe/
 
 用 Xcode 打开 `RenLeMe.xcodeproj`，选择 iPhone Simulator 运行。当前工程面向 iOS 17+，本地数据使用 SwiftData。
 
-说明：Demo 假记录只在 Debug 构建中自动插入，Release/TestFlight 默认不插入，方便上线时保持干净首启体验。
+说明：Debug、Release 与 TestFlight 均不自动插入 Demo 记录或默认目标。干净安装从零记录、零资产和空目标开始，仅保留内置食物库；覆盖安装不会清除已有真实记录。
 
 常用静态检查：
 

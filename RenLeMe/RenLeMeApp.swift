@@ -87,8 +87,7 @@ struct AppRootView: View {
     @Query(sort: \Goal.createdAt, order: .forward) private var goals: [Goal]
     @AppStorage("didSeedDefaultGoals") private var didSeedDefaultGoals = false
     @AppStorage("didSeedFoodNutritionItems") private var didSeedFoodNutritionItems = false
-    @AppStorage("didSeedDemoRecords") private var didSeedDemoRecords = false
-    @AppStorage("didNormalizeDefaultGoalsV1") private var didNormalizeDefaultGoalsV1 = false
+    @AppStorage("didRemoveLegacyDefaultGoalsV1") private var didRemoveLegacyDefaultGoalsV1 = false
     @AppStorage("didCompleteWelcomeOnboarding") private var didCompleteWelcomeOnboarding = false
     @State private var selectedTab: AppTab = .home
     @State private var isPresentingRecord = false
@@ -166,12 +165,8 @@ struct AppRootView: View {
             }
         }
         .task {
-            seedDefaultGoalsIfNeeded()
-            normalizeDefaultGoalsIfNeeded()
+            removeLegacyDefaultGoalsIfNeeded()
             seedFoodNutritionItemsIfNeeded()
-            if AppRuntimeConfig.shouldSeedDemoRecords {
-                seedDemoRecordsIfNeeded()
-            }
             routePendingCooldownIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: .openCooldownRecord)) { notification in
@@ -235,35 +230,47 @@ struct AppRootView: View {
         routedCooldownRecord = record
     }
 
-    private func seedDefaultGoalsIfNeeded() {
-        guard !didSeedDefaultGoals else { return }
-        modelContext.insert(Goal(title: "新相机基金", type: .money, targetValue: 3000, icon: "camera.fill"))
-        modelContext.insert(Goal(title: "少喝奶茶", type: .food, targetValue: 900, icon: "cup.and.saucer.fill"))
-        modelContext.insert(Goal(title: "拿回 10 小时", type: .time, targetValue: 600, icon: "moon.stars.fill"))
-        didSeedDefaultGoals = true
-    }
+    private func removeLegacyDefaultGoalsIfNeeded() {
+        guard !didRemoveLegacyDefaultGoalsV1 else { return }
+        guard didSeedDefaultGoals else {
+            didRemoveLegacyDefaultGoalsV1 = true
+            return
+        }
 
-    private func normalizeDefaultGoalsIfNeeded() {
-        guard !didNormalizeDefaultGoalsV1 else { return }
+        let legacyGoals = goals.filter(isLegacyDefaultGoal)
+        let legacyGoalIDs = Set(legacyGoals.map(\.id))
 
-        for goal in goals {
-            switch (goal.title, goal.type, goal.targetValue) {
-            case ("本周少喝 3 杯奶茶", .food, 900):
-                goal.title = "少喝奶茶"
-            case ("本周拿回 10 小时", .time, 600):
-                goal.title = "拿回 10 小时"
-            default:
-                continue
-            }
+        for record in records where record.goalId.map(legacyGoalIDs.contains) == true {
+            record.goalId = nil
+        }
+        for goal in legacyGoals {
+            modelContext.delete(goal)
         }
 
         do {
             try modelContext.save()
-            didNormalizeDefaultGoalsV1 = true
+            didSeedDefaultGoals = false
+            didRemoveLegacyDefaultGoalsV1 = true
         } catch {
+            modelContext.rollback()
             #if DEBUG
-            print("Failed to normalize default goals: \(error.localizedDescription)")
+            print("Failed to remove legacy default goals: \(error.localizedDescription)")
             #endif
+        }
+    }
+
+    private func isLegacyDefaultGoal(_ goal: Goal) -> Bool {
+        switch (goal.title, goal.type, goal.targetValue, goal.icon) {
+        case ("新相机基金", .money, 3000, "camera.fill"):
+            true
+        case ("少喝奶茶", .food, 900, "cup.and.saucer.fill"),
+             ("本周少喝 3 杯奶茶", .food, 900, "cup.and.saucer.fill"):
+            true
+        case ("拿回 10 小时", .time, 600, "moon.stars.fill"),
+             ("本周拿回 10 小时", .time, 600, "moon.stars.fill"):
+            true
+        default:
+            false
         }
     }
 
@@ -277,75 +284,6 @@ struct AppRootView: View {
         didSeedFoodNutritionItems = true
     }
 
-    private func seedDemoRecordsIfNeeded() {
-        guard !didSeedDemoRecords else { return }
-        guard records.isEmpty else {
-            didSeedDemoRecords = true
-            return
-        }
-
-        let calendar = Calendar.current
-        let now = Date()
-        let cameraGoalId = goals.first { $0.title.contains("相机") }?.id
-        let milkTeaGoalId = goals.first { $0.title.contains("奶茶") }?.id
-
-        modelContext.insert(ResistRecord(
-            type: .food,
-            title: "奶茶",
-            value: 420,
-            status: .resisted,
-            reason: "馋了",
-            createdAt: calendar.date(byAdding: .minute, value: -20, to: now) ?? now,
-            resolvedAt: calendar.date(byAdding: .minute, value: -20, to: now) ?? now,
-            note: "换成了热水，先过这一阵。",
-            goalId: milkTeaGoalId,
-            propTemplateId: "food.milkTea",
-            propIconKey: .milkTea
-        ))
-
-        modelContext.insert(ResistRecord(
-            type: .time,
-            title: "短视频",
-            value: 30,
-            status: .pending,
-            reason: "习惯性打开",
-            createdAt: calendar.date(byAdding: .minute, value: -35, to: now) ?? now,
-            cooldownUntil: calendar.date(byAdding: .minute, value: 15, to: now),
-            enteredCooldown: true,
-            note: "稍后再看",
-            propTemplateId: "time.shortVideo",
-            propIconKey: .shortVideo
-        ))
-
-        modelContext.insert(ResistRecord(
-            type: .money,
-            title: "相机",
-            value: 128,
-            status: .resisted,
-            reason: "奖励自己",
-            createdAt: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
-            resolvedAt: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
-            note: "相机基金",
-            goalId: cameraGoalId,
-            propTemplateId: "money.camera",
-            propIconKey: .camera
-        ))
-
-        modelContext.insert(ResistRecord(
-            type: .food,
-            title: "外卖",
-            value: 800,
-            status: .gaveIn,
-            reason: "压力大",
-            createdAt: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
-            resolvedAt: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
-            note: "已记录",
-            propTemplateId: "food.takeout",
-            propIconKey: .takeout
-        ))
-
-        didSeedDemoRecords = true
-    }
 }
 
 enum AppTab: Hashable {
@@ -370,15 +308,5 @@ enum AppTab: Hashable {
         case .goals: "target"
         case .profile: "person.crop.circle"
         }
-    }
-}
-
-private enum AppRuntimeConfig {
-    static var shouldSeedDemoRecords: Bool {
-        #if DEBUG
-        true
-        #else
-        false
-        #endif
     }
 }

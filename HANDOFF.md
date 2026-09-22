@@ -77,8 +77,8 @@ RenLeMe/RenLeMeApp.swift
 - SwiftData modelContainer。
 - 四个 Tab。
 - 启动页和新手引导 overlay。
-- 默认目标、食物库、Demo 记录种子数据。
-- Release/TestFlight 默认不插入 Demo 假记录。
+- 本地食物库种子数据。
+- Debug/Release/TestFlight 均不插入 Demo 记录或默认目标，覆盖安装保留已有真实记录。
 
 ```text
 RenLeMe/Models.swift
@@ -193,7 +193,7 @@ RenLeMe/EditRecordView.swift
 
 目标：
 
-- 默认目标是新相机基金、本周少喝 3 杯奶茶、本周拿回 10 小时。
+- 首次安装目标为空，由用户自行新建。旧测试版中的三张系统预设目标会在升级时清理。
 - 目标进度优先由关联 `goalId` 的 resisted 记录计算。
 
 冷静箱：
@@ -205,9 +205,9 @@ RenLeMe/EditRecordView.swift
 
 上线注意：
 
-- Demo 假记录只在 Debug 构建中自动插入。
-- Release/TestFlight 默认不插入 Demo 假记录。
-- 默认目标和本地食物库仍会种子插入，作为产品初始模板能力。
+- 已删除启动时的 Demo 记录注入逻辑，Debug/Release/TestFlight 均从零记录开始。
+- 旧版本已插入的示例不自动删除，以免误删真实记录；用户可以手动删除。
+- 本地食物库仍会种子插入；目标由用户自行新建。
 
 ## 视觉和交互方向
 

@@ -36,7 +36,7 @@ App 使用 4 个底部 Tab。
 
 - Today 顶部卡片与周点阵。
 - 我的忍耐资产：省下的钱、守住的热量、拿回的时间。
-- 目标去向：默认目标与进度卡。
+- 目标去向：用户自建目标与进度卡，首次安装为空状态。
 - 最近记录：显示具体道具、状态、时间。
 - 右下角快速入口：忍一下。
 
@@ -71,7 +71,7 @@ App 使用 4 个底部 Tab。
 
 当前模块：
 
-- 默认目标：新相机基金、本周少喝 3 杯奶茶、本周拿回 10 小时。
+- 首次安装目标为空，由用户自行创建；旧测试版的系统预设目标会在升级时清理。
 - 新增目标。
 - 编辑目标。
 - 删除目标。
@@ -303,29 +303,15 @@ UI-only 配置层，但记录会保存 `propTemplateId` 和 `propIconKeyRaw`，�
 
 使用 `@AppStorage` 防止重复插入：
 
-- `didSeedDefaultGoals`
 - `didSeedFoodNutritionItems`
-- `didSeedDemoRecords`
 - `didCompleteWelcomeOnboarding`
-
-默认目标：
-
-- 新相机基金。
-- 本周少喝 3 杯奶茶。
-- 本周拿回 10 小时。
-
-Demo 记录：
-
-- 奶茶：忍住了，420 kcal。
-- 短视频：冷静箱，30 min。
-- 相机：忍住了，¥128。
-- 外卖：没忍住，800 kcal。
 
 上线策略：
 
-- Demo 记录只在 Debug 构建中自动插入。
-- Release/TestFlight 默认不插入 Demo 记录，保证正式用户首次进入不会看到假历史。
-- 默认目标和本地食物库保留，用作产品模板和初始可用能力。
+- Debug、Release 和 TestFlight 均不插入 Demo 记录，启动注入逻辑已移除。
+- 不插入默认目标；旧测试版只清理准确匹配的三张系统预设目标，用户自建目标保留。
+- 已有记录在覆盖安装时保留，旧示例可以手动删除。
+- 本地食物库保留，用作产品初始可用能力。
 
 ## 11. 统计规则
 
@@ -370,7 +356,7 @@ Demo 记录：
 - 动态新手引导。
 - App 图标。
 - 自定义启动页。
-- Demo 种子数据。
+- 本地食物库种子数据。
 - 上线准备清单。
 - 隐私政策草稿。
 - 产品交付版 PPT：`outputs/manual-portfolio/presentations/renleme-portfolio/output/RenLeMe-Product-Presentation.pptx`
