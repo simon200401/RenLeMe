@@ -169,6 +169,13 @@ struct ResultsView: View {
                                 editingGoal = goal
                             }
                         }
+                        .contextMenu {
+                            Button {
+                                editingGoal = goal
+                            } label: {
+                                Label("编辑或删除", systemImage: "pencil")
+                            }
+                        }
                     }
                 }
             }

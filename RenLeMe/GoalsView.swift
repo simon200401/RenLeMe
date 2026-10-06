@@ -616,6 +616,7 @@ struct EditGoalView: View {
     @State private var imageSource: CustomImageSource?
     @State private var imageWasChanged = false
     @State private var saveFailed = false
+    @State private var isConfirmingDelete = false
 
     init(goal: Goal) {
         self.goal = goal
@@ -636,6 +637,25 @@ struct EditGoalView: View {
 
     private var canSave: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && parsedTarget > 0
+    }
+
+    /// Removes the goal and unlinks its records, which are kept.
+    private func deleteGoal() {
+        let goalId = goal.id
+        let imagePath = goal.customImagePath
+        let linked = (try? modelContext.fetch(FetchDescriptor<ResistRecord>()))?.filter { $0.goalId == goalId } ?? []
+        for record in linked {
+            record.goalId = nil
+        }
+        modelContext.delete(goal)
+        do {
+            try modelContext.save()
+            LocalImageStore.delete(imagePath)
+            dismiss()
+        } catch {
+            modelContext.rollback()
+            saveFailed = true
+        }
     }
 
     var body: some View {
@@ -675,10 +695,31 @@ struct EditGoalView: View {
                             )
                         }
                     }
+
+                    Button(role: .destructive) {
+                        UIApplication.shared.dismissKeyboard()
+                        isConfirmingDelete = true
+                    } label: {
+                        Label("删除目标", systemImage: "trash")
+                            .font(.rounded(16, weight: .black))
+                            .foregroundStyle(Color.punchBlack)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(Color.punchBlack.opacity(0.07))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(PressableScaleStyle())
+                    .accessibilityIdentifier("deleteGoalButton")
                 }
                 .padding(18)
             }
             .appScrollDefaults()
+        }
+        .confirmationDialog("删除「\(goal.title)」？", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
+            Button("删除目标", role: .destructive, action: deleteGoal)
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("记录都会保留，只是不再算进这个目标。")
         }
         .navigationTitle("编辑目标")
         .navigationBarTitleDisplayMode(.inline)

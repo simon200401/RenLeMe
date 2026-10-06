@@ -57,6 +57,11 @@ struct HomeView: View {
             }
     }
 
+    /// A new goal starts on a kind of urge that has none yet, when there is one.
+    private var nextGoalType: ResistType {
+        ResistType.allCases.first { type in !goals.contains { $0.type == type } } ?? .money
+    }
+
     private var growth: MascotGrowth {
         MascotGrowth(records: records)
     }
@@ -523,14 +528,43 @@ struct HomeView: View {
 
     @ViewBuilder
     private var goalSection: some View {
-        if goals.isEmpty {
-            GoalPlaceholderCard(isCompact: true) {
-                addingGoalType = .money
+        // Its own title sets goals apart from the things waiting above, and gives adding one a home.
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("目标")
+                    .font(.rounded(22, weight: .black))
+                    .foregroundStyle(Color.ink)
+
+                Spacer()
+
+                if !goals.isEmpty {
+                    Button {
+                        AppHaptics.lightTap()
+                        addingGoalType = nextGoalType
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.rounded(13, weight: .black))
+                            .foregroundStyle(Color.white)
+                            .frame(width: 30, height: 30)
+                            .background(Color.punchBlack)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(PressableScaleStyle())
+                    .accessibilityLabel("新建目标")
+                    .accessibilityIdentifier("homeAddAnotherGoalButton")
+                }
             }
-            .accessibilityIdentifier("homeAddGoalButton")
-        } else if let nearestGoal {
-            GoalProgressCard(goal: nearestGoal, records: records, isCompact: true, onTap: onShowResults)
+
+            if goals.isEmpty {
+                GoalPlaceholderCard(isCompact: true) {
+                    addingGoalType = nextGoalType
+                }
+                .accessibilityIdentifier("homeAddGoalButton")
+            } else {
+                HomeGoalList(goals: goals, records: records, onTap: onShowResults)
+            }
         }
+        .padding(.top, 4)
     }
 
     private var weekSummary: some View {
@@ -764,11 +798,121 @@ struct GoalPlaceholderCard: View {
     }
 }
 
+/// Every goal on the home screen, as rows of a single white card: colour stays in the icon and
+/// the bar, so the list sits quietly under the colour blocks of things waiting to be decided.
+struct HomeGoalList: View {
+    let goals: [Goal]
+    let records: [ResistRecord]
+    var onTap: () -> Void
+
+    /// More than this and the rest are a tap away on the results page.
+    private static let limit = 3
+
+    private struct Row: Identifiable {
+        let goal: Goal
+        let progress: Double
+        let remaining: Double
+
+        var id: UUID { goal.id }
+    }
+
+    /// Closest to done first; finished ones last.
+    private var rows: [Row] {
+        goals.map { goal in
+            let current = StatsCalculator.currentValue(for: goal, records: records)
+            return Row(goal: goal, progress: current / max(goal.targetValue, 1), remaining: max(goal.targetValue - current, 0))
+        }
+        .sorted { lhs, rhs in
+            let lhsDone = lhs.progress >= 1
+            let rhsDone = rhs.progress >= 1
+            return lhsDone == rhsDone ? lhs.progress > rhs.progress : !lhsDone
+        }
+    }
+
+    var body: some View {
+        let rows = rows
+        let shown = Array(rows.prefix(Self.limit))
+
+        Button(action: onTap) {
+            VStack(spacing: 0) {
+                ForEach(Array(shown.enumerated()), id: \.element.id) { index, row in
+                    if index > 0 {
+                        Rectangle()
+                            .fill(Color.punchBlack.opacity(0.07))
+                            .frame(height: 1)
+                            .padding(.leading, 62)
+                    }
+
+                    HStack(spacing: 12) {
+                        GoalIconView(goal: row.goal, size: 38)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 8) {
+                                Text(row.goal.title)
+                                    .font(.rounded(15, weight: .black))
+                                    .foregroundStyle(Color.ink)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.78)
+
+                                Spacer(minLength: 4)
+
+                                Text(row.remaining > 0 ? "还差 \(row.remaining.displayValue(for: row.goal.type))" : "已完成")
+                                    .font(.rounded(12, weight: .black))
+                                    .foregroundStyle(Color.secondaryInk)
+                                    .fixedSize()
+                            }
+
+                            Capsule()
+                                .fill(Color.punchBlack.opacity(0.1))
+                                .frame(height: 7)
+                                .overlay(alignment: .leading) {
+                                    GeometryReader { geometry in
+                                        Capsule()
+                                            .fill(Color.blockColor(for: row.goal.type))
+                                            .frame(width: max(7, geometry.size.width * min(max(row.progress, 0), 1)))
+                                    }
+                                }
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 11)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(
+                        "\(row.goal.title)，\(row.remaining > 0 ? "还差 \(row.remaining.displayValue(for: row.goal.type))" : "已完成")"
+                    )
+                }
+
+                if rows.count > shown.count {
+                    Rectangle()
+                        .fill(Color.punchBlack.opacity(0.07))
+                        .frame(height: 1)
+                        .padding(.leading, 62)
+
+                    HStack {
+                        Text("还有 \(rows.count - shown.count) 个目标")
+                            .font(.rounded(13, weight: .black))
+                            .foregroundStyle(Color.secondaryInk)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.rounded(12, weight: .black))
+                            .foregroundStyle(Color.secondaryInk)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                }
+            }
+            .background(Color.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .shadow(color: .punchBlack.opacity(0.14), radius: 0, x: 0, y: 7)
+        }
+        .buttonStyle(PressableScaleStyle())
+        .accessibilityIdentifier("homeGoalList")
+    }
+}
+
 struct GoalProgressCard: View {
     let goal: Goal
     let records: [ResistRecord]
-    /// The slim layout used on the home screen, where the card is a glance rather than a detail.
-    var isCompact = false
     var onTap: () -> Void = {}
 
     private var current: Double {
@@ -783,39 +927,8 @@ struct GoalProgressCard: View {
         max(goal.targetValue - current, 0)
     }
 
-    private var compactCard: some View {
-        PunchyCard(fill: Color.softBlockColor(for: goal.type), cornerRadius: 24, padding: 12) {
-            HStack(spacing: 12) {
-                GoalIconView(goal: goal, size: 42)
-
-                VStack(alignment: .leading, spacing: 7) {
-                    HStack(spacing: 8) {
-                        Text(goal.title)
-                            .font(.rounded(16, weight: .black))
-                            .foregroundStyle(Color.ink)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.78)
-
-                        Spacer(minLength: 4)
-
-                        Text(remaining > 0 ? "还差 \(remaining.displayValue(for: goal.type))" : "已完成")
-                            .font(.rounded(13, weight: .black))
-                            .foregroundStyle(Color.secondaryInk)
-                            .fixedSize()
-                    }
-
-                    ProgressLine(progress: progress, tint: Color.blockColor(for: goal.type))
-                }
-            }
-            .frame(height: HomeView.slimRowHeight)
-        }
-    }
-
     var body: some View {
         Button(action: onTap) {
-            if isCompact {
-                compactCard
-            } else {
             PunchyCard(fill: Color.softBlockColor(for: goal.type), cornerRadius: 28, padding: 16) {
                 HStack(spacing: 14) {
                     GoalIconView(goal: goal, size: 68)
@@ -842,7 +955,6 @@ struct GoalProgressCard: View {
                             .minimumScaleFactor(0.82)
                     }
                 }
-            }
             }
         }
         .buttonStyle(PressableScaleStyle())
