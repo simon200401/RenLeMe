@@ -878,8 +878,13 @@ struct PauseFlowView: View {
         guard completionMoment == nil else { return }
 
         let estimate = value.flatMap { $0 > 0 ? $0 : nil }
-        let goal = status == .resisted ? filteredGoals.first(where: { $0.id == selectedGoalId }) : nil
-        let goalValueBeforeSave = goal.map { StatsCalculator.currentValue(for: $0, records: records) }
+        // Something put in the cooldown box is already pointed at the goal being saved towards, so
+        // it counts there if it is resisted later. It only ever counts once it is resisted.
+        let goalId = status == .resisted
+            ? selectedGoalId
+            : status == .pending ? StatsCalculator.suggestedGoalId(for: type, goals: goals, records: records) : nil
+        let goal = filteredGoals.first { $0.id == goalId }
+        let ledgerBeforeSave = GoalLedger(goals: goals, records: records)
         let growthCountBeforeSave = MascotGrowth(records: records).resistedCount
         let cooldownUntil = status == .pending ? Date().addingTimeInterval(type.cooldownSeconds) : nil
 
@@ -932,11 +937,21 @@ struct PauseFlowView: View {
             completionMessage = "小忍长大了 · \(grownStage.title)"
             completionReaction = .levelUp
             completionFace = .surprised
-        } else if let goal, let goalValueBeforeSave, let estimate {
-            let remaining = goal.targetValue - goalValueBeforeSave - estimate
-            completionMessage = remaining > 0
-                ? "「\(goal.title)」还差 \(remaining.displayValue(for: type))"
-                : "「\(goal.title)」完成了"
+        } else if status == .resisted, let goal, estimate != nil {
+            let ledger = GoalLedger(goals: goals, records: records.filter { $0.id != record.id } + [record])
+            let remaining = ledger.remaining(for: goal)
+            // What went past this goal's target shows up as a gain on another goal of the same kind.
+            let next = filteredGoals
+                .filter { $0.id != goal.id }
+                .map { ($0, ledger.value(for: $0) - ledgerBeforeSave.value(for: $0)) }
+                .first { $0.1 > 0 }
+            if remaining > 0 {
+                completionMessage = "「\(goal.title)」还差 \(remaining.displayValue(for: type))"
+            } else if let next {
+                completionMessage = "「\(goal.title)」完成了，多出的 \(next.1.displayValue(for: type)) 进了「\(next.0.title)」"
+            } else {
+                completionMessage = "「\(goal.title)」完成了"
+            }
         } else {
             completionMessage = nil
         }

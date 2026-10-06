@@ -750,7 +750,6 @@ private struct CooldownBoxView: View {
 
 private struct CooldownLengthView: View {
     var onChange: () -> Void
-    @State private var chosen: [ResistType: TimeInterval] = [:]
 
     var body: some View {
         ZStack {
@@ -759,40 +758,7 @@ private struct CooldownLengthView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(ResistType.allCases) { type in
-                        PunchyCard(fill: Color.softBlockColor(for: type), cornerRadius: 26, padding: 16) {
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack(spacing: 10) {
-                                    TypeMascotBadge(type: type, size: 44)
-                                    Text(type.urgeTitle)
-                                        .font(.rounded(20, weight: .black))
-                                        .foregroundStyle(Color.ink)
-                                }
-
-                                HStack(spacing: 8) {
-                                    ForEach(type.cooldownOptions, id: \.self) { seconds in
-                                        let isSelected = (chosen[type] ?? type.cooldownSeconds) == seconds
-                                        Button {
-                                            AppHaptics.lightTap()
-                                            UserDefaults.standard.set(seconds, forKey: AppSettings.cooldownKey(for: type))
-                                            chosen[type] = seconds
-                                            onChange()
-                                        } label: {
-                                            Text(AppSettings.durationText(seconds))
-                                                .font(.rounded(14, weight: .black))
-                                                .foregroundStyle(isSelected ? Color.white : .punchBlack)
-                                                .lineLimit(1)
-                                                .minimumScaleFactor(0.75)
-                                                .frame(maxWidth: .infinity)
-                                                .padding(.vertical, 11)
-                                                .background(isSelected ? Color.punchBlack : .softCream)
-                                                .clipShape(Capsule())
-                                        }
-                                        .buttonStyle(PressableScaleStyle())
-                                        .accessibilityAddTraits(isSelected ? .isSelected : [])
-                                    }
-                                }
-                            }
-                        }
+                        CooldownLengthCard(type: type, onChange: onChange)
                     }
 
                     Text("只影响之后放进冷静箱的。")
@@ -800,7 +766,7 @@ private struct CooldownLengthView: View {
                         .foregroundStyle(Color.secondaryInk)
                         .padding(.leading, 4)
                 }
-.padding(.horizontal, 18)
+                .padding(.horizontal, 18)
                 .padding(.top, 6)
                 .padding(.bottom, 18)
             }
@@ -808,6 +774,143 @@ private struct CooldownLengthView: View {
         }
         .navigationTitle("冷静时长")
         .navigationBarTitleDisplayMode(.inline)
+        .appKeyboardDismissal()
+    }
+}
+
+/// One kind of urge: four ready-made lengths, or any length typed in by hand.
+private struct CooldownLengthCard: View {
+    private enum Unit: String, CaseIterable, Identifiable {
+        case minute = "分钟"
+        case hour = "小时"
+        case day = "天"
+
+        var id: String { rawValue }
+
+        var seconds: TimeInterval {
+            switch self {
+            case .minute: 60
+            case .hour: 60 * 60
+            case .day: 24 * 60 * 60
+            }
+        }
+    }
+
+    let type: ResistType
+    var onChange: () -> Void
+
+    @State private var seconds: TimeInterval
+    @State private var isCustom: Bool
+    @State private var amountText: String
+    @State private var unit: Unit
+    @FocusState private var isAmountFocused: Bool
+
+    init(type: ResistType, onChange: @escaping () -> Void) {
+        self.type = type
+        self.onChange = onChange
+        let current = type.cooldownSeconds
+        // Shown in the largest unit that divides it evenly.
+        let unit = Unit.allCases.last { current.truncatingRemainder(dividingBy: $0.seconds) == 0 } ?? .minute
+        _seconds = State(initialValue: current)
+        _isCustom = State(initialValue: !type.cooldownOptions.contains(current))
+        _unit = State(initialValue: unit)
+        _amountText = State(initialValue: (current / unit.seconds).cleanString)
+    }
+
+    /// The typed length in seconds, when it is a whole number inside the allowed range.
+    private var typedSeconds: TimeInterval? {
+        guard let amount = Double(amountText), amount > 0, amount == amount.rounded() else { return nil }
+        let value = amount * unit.seconds
+        return AppSettings.cooldownRange.contains(value) ? value : nil
+    }
+
+    var body: some View {
+        PunchyCard(fill: Color.softBlockColor(for: type), cornerRadius: 26, padding: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    TypeMascotBadge(type: type, size: 44)
+                    Text(type.urgeTitle)
+                        .font(.rounded(20, weight: .black))
+                        .foregroundStyle(Color.ink)
+
+                    Spacer()
+
+                    Text(AppSettings.durationText(seconds))
+                        .font(.rounded(15, weight: .black))
+                        .foregroundStyle(Color.secondaryInk)
+                }
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 62), spacing: 8)], spacing: 8) {
+                    ForEach(type.cooldownOptions, id: \.self) { option in
+                        chip(AppSettings.durationText(option), isSelected: !isCustom && seconds == option) {
+                            isAmountFocused = false
+                            isCustom = false
+                            apply(option)
+                        }
+                    }
+
+                    chip("自定义", isSelected: isCustom) {
+                        isCustom = true
+                        isAmountFocused = true
+                    }
+                }
+
+                if isCustom {
+                    HStack(spacing: 8) {
+                        AppTextField(placeholder: "数字", text: $amountText, keyboardType: .numberPad, focus: $isAmountFocused)
+                            .frame(width: 96)
+                            .background(Color.softCream)
+                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+                        Picker("单位", selection: $unit) {
+                            ForEach(Unit.allCases) { unit in
+                                Text(unit.rawValue).tag(unit)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+
+                    if typedSeconds == nil {
+                        Text("填 1 分钟到 30 天之间的整数")
+                            .font(.rounded(12, weight: .black))
+                            .foregroundStyle(Color.secondaryInk)
+                    }
+                }
+            }
+        }
+        .onChange(of: amountText) { _, _ in applyTyped() }
+        .onChange(of: unit) { _, _ in applyTyped() }
+    }
+
+    private func chip(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            AppHaptics.lightTap()
+            action()
+        } label: {
+            Text(title)
+                .font(.rounded(14, weight: .black))
+                .foregroundStyle(isSelected ? Color.white : .punchBlack)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+                .background(isSelected ? Color.punchBlack : .softCream)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(PressableScaleStyle())
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    /// A typed value takes effect as soon as it is valid; an invalid one leaves the last length in place.
+    private func applyTyped() {
+        guard isCustom, let typedSeconds else { return }
+        apply(typedSeconds)
+    }
+
+    private func apply(_ value: TimeInterval) {
+        seconds = value
+        UserDefaults.standard.set(value, forKey: AppSettings.cooldownKey(for: type))
+        onChange()
     }
 }
 

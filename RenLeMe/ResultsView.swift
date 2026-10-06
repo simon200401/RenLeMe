@@ -9,6 +9,12 @@ struct ResultsView: View {
     @AppStorage("homeAssetPeriod") private var assetPeriod: AssetPeriod = .week
     @State private var editingGoal: Goal?
     @State private var addingGoalType: ResistType?
+    @AppStorage(GoalFocus.versionKey) private var focusVersion = 0
+
+    private var ledger: GoalLedger {
+        _ = focusVersion
+        return GoalLedger(goals: goals, records: records)
+    }
     @State private var assetFaces: [ResistType: DynamicMascotExpression] = [:]
     @State private var completedGoalMoment: MascotMoment?
     @State private var activeAssetType: ResistType?
@@ -162,7 +168,7 @@ struct ResultsView: View {
             } else {
                 VStack(spacing: 12) {
                     ForEach(goals.prefix(3)) { goal in
-                        GoalProgressCard(goal: goal, records: records) {
+                        GoalProgressCard(goal: goal, ledger: ledger) {
                             if isGoalCompleted(goal) {
                                 showGoalCelebration(.goalCompleted(goal.type))
                             } else {
@@ -174,6 +180,14 @@ struct ResultsView: View {
                                 editingGoal = goal
                             } label: {
                                 Label("编辑或删除", systemImage: "pencil")
+                            }
+
+                            if ledger.canBecomeFocus(goal) {
+                                Button {
+                                    GoalFocus.set(goal)
+                                } label: {
+                                    Label("先攒这个", systemImage: "arrow.up.to.line")
+                                }
                             }
                         }
                     }
@@ -247,7 +261,7 @@ struct ResultsView: View {
     }
 
     private func isGoalCompleted(_ goal: Goal) -> Bool {
-        StatsCalculator.currentValue(for: goal, records: records) / max(goal.targetValue, 1) >= 1
+        ledger.isFinished(goal)
     }
 
     private func showGoalCelebration(_ moment: MascotMoment) {

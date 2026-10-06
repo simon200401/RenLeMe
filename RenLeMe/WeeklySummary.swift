@@ -28,7 +28,7 @@ struct WeeklySummaryContent: Equatable {
         .joined(separator: " · ")
 
         if let goal = StatsCalculator.nearestUnfinishedGoal(in: goals, records: records) {
-            let remaining = goal.targetValue - StatsCalculator.currentValue(for: goal, records: records)
+            let remaining = GoalLedger(goals: goals, records: records).remaining(for: goal)
             goalText = "「\(goal.title)」还差 \(remaining.displayValue(for: goal.type))"
         } else {
             goalText = nil

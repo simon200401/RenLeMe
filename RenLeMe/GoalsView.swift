@@ -10,6 +10,12 @@ struct GoalsView: View {
     @State private var editingGoal: Goal?
     @State private var completedGoalMoment: MascotMoment?
     @State private var headerFace: DynamicMascotExpression?
+    @AppStorage(GoalFocus.versionKey) private var focusVersion = 0
+
+    private var ledger: GoalLedger {
+        _ = focusVersion
+        return GoalLedger(goals: goals, records: records)
+    }
 
     var body: some View {
         ZStack {
@@ -26,7 +32,7 @@ struct GoalsView: View {
                     } else {
                         VStack(spacing: 14) {
                             ForEach(goals) { goal in
-                                GoalDetailCard(goal: goal, records: records) {
+                                GoalDetailCard(goal: goal, ledger: ledger) {
                                     editingGoal = goal
                                 } onCelebrate: { moment in
                                     showGoalCelebration(moment)
@@ -36,6 +42,14 @@ struct GoalsView: View {
                                             editingGoal = goal
                                         } label: {
                                             Label("编辑目标", systemImage: "pencil")
+                                        }
+
+                                        if ledger.canBecomeFocus(goal) {
+                                            Button {
+                                                GoalFocus.set(goal)
+                                            } label: {
+                                                Label("先攒这个", systemImage: "arrow.up.to.line")
+                                            }
                                         }
 
                                         Button(role: .destructive) {
@@ -114,8 +128,7 @@ struct GoalsView: View {
     }
 
     private func goalProgress(for goal: Goal) -> Double {
-        let current = StatsCalculator.currentValue(for: goal, records: records)
-        return current / max(goal.targetValue, 1)
+        ledger.progress(of: goal)
     }
 
     private func showGoalCelebration(_ moment: MascotMoment) {
@@ -157,17 +170,17 @@ struct GoalsView: View {
 private struct GoalDetailCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let goal: Goal
-    let records: [ResistRecord]
+    let ledger: GoalLedger
     var onEdit: () -> Void = {}
     var onCelebrate: (MascotMoment) -> Void = { _ in }
     @State private var pulse = false
 
     private var current: Double {
-        StatsCalculator.currentValue(for: goal, records: records)
+        ledger.value(for: goal)
     }
 
     private var progress: Double {
-        current / max(goal.targetValue, 1)
+        ledger.progress(of: goal)
     }
 
     private var isCompleted: Bool {
@@ -197,7 +210,7 @@ private struct GoalDetailCard: View {
                                 }
                             }
 
-                            Text(isCompleted ? "已完成" : goal.type.assetTitle)
+                            Text(isCompleted ? "已完成" : ledger.isFocus(goal) ? "正在攒" : goal.type.assetTitle)
                                 .font(.rounded(14, weight: .black))
                                 .foregroundStyle(textColor.opacity(0.72))
                         }
@@ -511,8 +524,9 @@ struct AddGoalView: View {
                         .font(.rounded(15, weight: .black))
                 }
             }
-            .sheet(item: $imageSource) { source in
+            .fullScreenCover(item: $imageSource) { source in
                 CameraImagePicker(image: $goalImage, sourceType: source.sourceType)
+                    .ignoresSafeArea()
             }
             .alert("目标保存失败", isPresented: $saveFailed) {
                 Button("知道了", role: .cancel) {}
@@ -737,10 +751,11 @@ struct EditGoalView: View {
                     .font(.rounded(15, weight: .black))
             }
         }
-        .sheet(item: $imageSource) { source in
+        .fullScreenCover(item: $imageSource) { source in
             CameraImagePicker(image: $goalImage, sourceType: source.sourceType) {
                 imageWasChanged = true
             }
+            .ignoresSafeArea()
         }
         .alert("目标保存失败", isPresented: $saveFailed) {
             Button("知道了", role: .cancel) {}

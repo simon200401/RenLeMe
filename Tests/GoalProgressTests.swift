@@ -35,6 +35,7 @@ struct GoalProgressTests {
         expect(StatsCalculator.defaultGoalId(for: .money, goals: goals + [otherMoney]) == nil,
                "Multiple same-type goals require a choice")
 
+        let foodAhead = record(.food, value: 2000, goalId: food.id)
         let linked = record(.money, value: 100, goalId: StatsCalculator.defaultGoalId(for: .money, goals: goals))
         let unlinked = record(.money, value: 200)
         let cooling = record(.money, value: 50, status: .pending, goalId: money.id)
@@ -50,6 +51,26 @@ struct GoalProgressTests {
         ) == otherMoney.id, "A finished goal is not suggested")
         expect(StatsCalculator.suggestedGoalId(for: .money, goals: [food], records: []) == nil,
                "No suggestion without a goal of that type")
+        // Goals of one kind fill one at a time, and what goes past a target passes to the next.
+        let pair = [money, otherMoney]
+        let big = record(.money, value: 1300, goalId: money.id)
+        let spill = GoalLedger(goals: pair, records: [big], preferred: [:])
+        expect(spill.value(for: money) == 1000 && spill.value(for: otherMoney) == 300,
+               "Whatever passes a target moves on to the next goal")
+        expect(spill.isFinished(money) && spill.focusId(for: .money) == otherMoney.id,
+               "A finished goal hands over to the next in line")
+        let chosen = GoalLedger(goals: pair, records: [linked], preferred: [.money: otherMoney.id])
+        expect(chosen.focusId(for: .money) == otherMoney.id && chosen.isFocus(otherMoney) && !chosen.isFocus(money),
+               "The chosen goal is the one being saved towards")
+        expect(chosen.value(for: money) == 100, "Choosing a goal does not move what is already saved")
+        let full = GoalLedger(goals: pair, records: [record(.money, value: 5000, goalId: money.id)], preferred: [:])
+        expect(full.value(for: money) + full.value(for: otherMoney) == 5000 && full.focusId(for: .money) == nil,
+               "Nothing is lost when every goal is full, and nothing is in line")
+        expect(GoalLedger(goals: [money], records: [big], preferred: [:]).focusId(for: .money) == money.id,
+               "A single goal keeps receiving records after it is done")
+        expect(GoalLedger(goals: goals, records: [foodAhead], preferred: [:]).value(for: money) == 0,
+               "Overflow never crosses between kinds of urge")
+
         // Insights stay quiet until there is enough to go on.
         let thin = RecordInsights(records: [linked, unlinked])
         expect(thin.peakTime == nil && thin.typeRates == nil && thin.cooldownEffect == nil,
@@ -83,6 +104,10 @@ struct GoalProgressTests {
         expect(AppSettings.durationText(ResistType.money.defaultCooldownSeconds) == "24 小时"
                && AppSettings.durationText(600) == "10 分钟" && AppSettings.durationText(259_200) == "3 天",
                "Cooldown lengths read naturally")
+        expect(AppSettings.durationText(45 * 60) == "45 分钟" && AppSettings.durationText(36 * 3600) == "36 小时",
+               "Hand-set lengths read naturally too")
+        expect(AppSettings.cooldownRange.contains(60) && !AppSettings.cooldownRange.contains(30)
+               && !AppSettings.cooldownRange.contains(31 * 86_400), "Hand-set lengths stay between a minute and thirty days")
         let foodRecord = record(.food, value: 420, goalId: food.id)
         let timeRecord = record(.time, value: 30, goalId: time.id)
         for record in [linked, unlinked, cooling, gaveIn, unknown, mismatched, foodRecord, timeRecord] {

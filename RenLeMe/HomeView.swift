@@ -41,10 +41,6 @@ struct HomeView: View {
     let onDirectRecord: () -> Void
     let onShowResults: () -> Void
 
-    private var weekAssets: AssetSummary {
-        StatsCalculator.assets(from: records, period: .week)
-    }
-
     private var todayCount: Int {
         StatsCalculator.resistedToday(in: records)
     }
@@ -79,7 +75,6 @@ struct HomeView: View {
                     hero
                     pendingSection
                     goalSection
-                    weekSummary
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 6)
@@ -330,7 +325,7 @@ struct HomeView: View {
 
             Button(action: greetMascot) {
                 AnimatedXiaoRenView(
-                    color: todayCount > 0 ? Color.punchGreen : Color(red: 1.0, green: 0.949, blue: 0.839),
+                    color: Color(red: 1.0, green: 0.949, blue: 0.839),
                     expression: heroExpression,
                     size: 72,
                     reduceMotion: reduceMotion,
@@ -396,8 +391,7 @@ struct HomeView: View {
         if pendingRecords.contains(where: { ($0.cooldownUntil ?? .distantFuture) <= now }) {
             return MascotContext(faces: [.cooling], line: "有件事可以决定了")
         }
-        if let nearestGoal,
-           StatsCalculator.currentValue(for: nearestGoal, records: records) / max(nearestGoal.targetValue, 1) >= 0.9 {
+        if let nearestGoal, GoalLedger(goals: goals, records: records).progress(of: nearestGoal) >= 0.9 {
             return MascotContext(faces: [.heartEyes], line: "「\(nearestGoal.title)」就差一点了")
         }
         if let last = decided.first, last.status == .gaveIn,
@@ -565,35 +559,6 @@ struct HomeView: View {
             }
         }
         .padding(.top, 4)
-    }
-
-    private var weekSummary: some View {
-        Button(action: onShowResults) {
-            HStack(spacing: 8) {
-                Text("本周")
-                    .font(.rounded(14, weight: .black))
-                    .foregroundStyle(Color.secondaryInk)
-
-                Text("\(weekAssets.money.moneyString) · \(weekAssets.calories.calorieString) · \(weekAssets.minutes.displayValue(for: .time))")
-                    .font(.rounded(15, weight: .black))
-                    .foregroundStyle(Color.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-
-                Spacer(minLength: 4)
-
-                Image(systemName: "chevron.right")
-                    .font(.rounded(13, weight: .black))
-                    .foregroundStyle(Color.punchBlack)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(Color.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        }
-        .buttonStyle(PressableScaleStyle())
-        .accessibilityLabel("本周成果，\(weekAssets.money.moneyString)，\(weekAssets.calories.calorieString)，\(weekAssets.minutes.displayValue(for: .time))")
-        .accessibilityIdentifier("weekSummaryButton")
     }
 }
 
@@ -805,6 +770,8 @@ struct HomeGoalList: View {
     let records: [ResistRecord]
     var onTap: () -> Void
 
+    @AppStorage(GoalFocus.versionKey) private var focusVersion = 0
+
     /// More than this and the rest are a tap away on the results page.
     private static let limit = 3
 
@@ -818,9 +785,10 @@ struct HomeGoalList: View {
 
     /// Closest to done first; finished ones last.
     private var rows: [Row] {
-        goals.map { goal in
-            let current = StatsCalculator.currentValue(for: goal, records: records)
-            return Row(goal: goal, progress: current / max(goal.targetValue, 1), remaining: max(goal.targetValue - current, 0))
+        _ = focusVersion
+        let ledger = GoalLedger(goals: goals, records: records)
+        return goals.map { goal in
+            Row(goal: goal, progress: ledger.progress(of: goal), remaining: ledger.remaining(for: goal))
         }
         .sorted { lhs, rhs in
             let lhsDone = lhs.progress >= 1
@@ -912,19 +880,15 @@ struct HomeGoalList: View {
 
 struct GoalProgressCard: View {
     let goal: Goal
-    let records: [ResistRecord]
+    let ledger: GoalLedger
     var onTap: () -> Void = {}
 
-    private var current: Double {
-        StatsCalculator.currentValue(for: goal, records: records)
-    }
-
     private var progress: Double {
-        current / max(goal.targetValue, 1)
+        ledger.progress(of: goal)
     }
 
     private var remaining: Double {
-        max(goal.targetValue - current, 0)
+        ledger.remaining(for: goal)
     }
 
     var body: some View {
@@ -948,7 +912,11 @@ struct GoalProgressCard: View {
 
                         ProgressLine(progress: progress, tint: Color.blockColor(for: goal.type))
 
-                        Text(remaining > 0 ? "还差 \(remaining.displayValue(for: goal.type))" : "已经完成，点一下庆祝。")
+                        Text(
+                            remaining > 0
+                                ? "\(ledger.isFocus(goal) ? "正在攒 · " : "")还差 \(remaining.displayValue(for: goal.type))"
+                                : "已经完成，点一下庆祝。"
+                        )
                             .font(.rounded(13, weight: .bold))
                             .foregroundStyle(Color.secondaryInk)
                             .lineLimit(2)

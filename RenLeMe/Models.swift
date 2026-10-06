@@ -84,7 +84,7 @@ enum ResistType: String, CaseIterable, Identifiable, Codable {
     /// How long something of this kind waits in the cooldown box: the user's choice, or the default.
     var cooldownSeconds: TimeInterval {
         let chosen = UserDefaults.standard.double(forKey: AppSettings.cooldownKey(for: self))
-        return cooldownOptions.contains(chosen) ? chosen : defaultCooldownSeconds
+        return AppSettings.cooldownRange.contains(chosen) ? chosen : defaultCooldownSeconds
     }
 
     var cooldownDurationText: String {
@@ -96,6 +96,9 @@ enum ResistType: String, CaseIterable, Identifiable, Codable {
 enum AppSettings {
     static let hapticsKey = "hapticsEnabled"
     static let cooldownReminderKey = "cooldownReminderEnabled"
+
+    /// Any length from a minute to thirty days can be set by hand.
+    static let cooldownRange: ClosedRange<TimeInterval> = 60...(30 * 24 * 60 * 60)
 
     static func cooldownKey(for type: ResistType) -> String {
         "cooldownSeconds.\(type.rawValue)"

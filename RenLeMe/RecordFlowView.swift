@@ -183,11 +183,12 @@ struct RecordFlowView: View {
                 }
             }
         }
-        .sheet(item: $customImageSource) { source in
+        .fullScreenCover(item: $customImageSource) { source in
             CameraImagePicker(image: $customImage, sourceType: source.sourceType) {
                 isCustomPropSelected = true
                 selectedTemplate = nil
             }
+            .ignoresSafeArea()
         }
     }
 
