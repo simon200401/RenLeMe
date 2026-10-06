@@ -2,7 +2,7 @@
 
 「忍了么」是一款面向冲动消费、饮食控制、时间管理场景的轻量化 iOS App。它帮助用户在“想买、想吃、想刷”的瞬间先记录、再决定，并把忍住后的价值转化成三类可见资产：省下的钱、守住的热量、拿回的时间。
 
-当前版本是可运行 Demo，已覆盖首页、记录、目标、我的、历史详情、编辑、冷静箱、新手引导、App 图标与启动页等主流程。
+当前版本已覆盖首页、记录、目标、我的、历史详情、编辑、冷静箱、新手引导、App 图标与启动页等主流程，正在进行 TestFlight 与 App Store 发布准备。最新审核状态以 App Store Connect 为准。
 
 ## 快速理解
 
@@ -17,12 +17,13 @@
 
 - 给新对话窗口的交接文档：[`HANDOFF.md`](HANDOFF.md)
 - 完整项目框架：[`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md)
-- 原始产品需求：[`PRD.md`](PRD.md)
 - 真机回归清单：[`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - 上线准备清单：[`RELEASE_READINESS.md`](RELEASE_READINESS.md)
 - 隐私政策草稿：[`PRIVACY_POLICY_DRAFT.md`](PRIVACY_POLICY_DRAFT.md)
 - App Store 文案草稿：[`APP_STORE_LISTING_DRAFT.md`](APP_STORE_LISTING_DRAFT.md)
-- 小忍灵动岛方案（v1 暂停，源码保留）：[`DYNAMIC_ISLAND_DESIGN.md`](DYNAMIC_ISLAND_DESIGN.md)
+- 审核补充资料：[`APP_REVIEW_RESPONSE_2_1.md`](APP_REVIEW_RESPONSE_2_1.md)
+- 自动测试运行方式：[`Tests/README.md`](Tests/README.md)
+- 历史产品分析（非当前实现规范）：[`PRODUCT_ANALYSIS_2026-09-21.md`](PRODUCT_ANALYSIS_2026-09-21.md)
 
 ## 代码结构
 
@@ -33,6 +34,8 @@ RenLeMe/
   PropTemplates.swift           道具模板系统
   StatsCalculator.swift         资产、目标、周/月统计计算
   Components.swift              共享 UI、道具图标、小忍、反馈弹窗、键盘处理
+  MascotMotion.swift            小忍短动作与姿态采样
+  CooldownCoordinator.swift     冷静箱处理与本地通知
   HomeView.swift                首页资产、目标进度、最近记录
   RecordFlowView.swift          记录流程、道具选择、自选图片、冷静箱通知
   GoalsView.swift               目标列表、新增/编辑目标
@@ -58,3 +61,5 @@ RenLeMe/
 swiftc -parse RenLeMe/*.swift
 plutil -lint RenLeMe.xcodeproj/project.pbxproj
 ```
+
+灵动岛扩展已移除。冷静箱只使用 App 内处理和本地通知，不需要额外扩展签名。

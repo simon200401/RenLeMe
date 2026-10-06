@@ -31,6 +31,11 @@ enum AssetPeriod: String, CaseIterable, Identifiable {
 }
 
 enum StatsCalculator {
+    static func defaultGoalId(for type: ResistType, goals: [Goal]) -> UUID? {
+        let matchingGoals = goals.filter { $0.type == type }
+        return matchingGoals.count == 1 ? matchingGoals.first?.id : nil
+    }
+
     static func assets(
         from records: [ResistRecord],
         period: AssetPeriod = .all,
@@ -94,13 +99,6 @@ enum StatsCalculator {
         return records.filter { record in
             record.status == .resisted && interval.contains(record.createdAt)
         }
-    }
-
-    static func mostCommonReason(in records: [ResistRecord]) -> String? {
-        let reasons = records.map(\.reason).filter { !$0.isEmpty }
-        return Dictionary(grouping: reasons, by: { $0 })
-            .max { $0.value.count < $1.value.count }?
-            .key
     }
 
     static func dailyResistedCounts(in records: [ResistRecord], days: Int = 7, calendar: Calendar = .current) -> [Int] {

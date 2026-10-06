@@ -4,11 +4,13 @@ import SwiftUI
 struct RecordDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let record: ResistRecord
 
     @State private var isEditing = false
     @State private var isConfirmingDelete = false
     @State private var feedbackMoment: MascotMoment?
+    @State private var cooldownAction: CooldownActionRequest?
 
     private var template: PropTemplate? {
         PropTemplate.matching(record: record)
@@ -39,6 +41,7 @@ struct RecordDetailView: View {
         }
         .navigationTitle("记录详情")
         .navigationBarTitleDisplayMode(.inline)
+        .cooldownActionSheet(request: $cooldownAction, onFeedback: showFeedback)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("编辑") {
@@ -72,11 +75,18 @@ struct RecordDetailView: View {
                         .font(.rounded(22, weight: .black))
                         .foregroundStyle(Color.ink)
                     Spacer()
-                    MascotMomentView(moment: .coolingRecord, size: 52)
+                    AnimatedXiaoRenView(
+                        color: .punchYellow,
+                        expression: .cooling,
+                        size: 52,
+                        reduceMotion: reduceMotion,
+                        reaction: .waiting,
+                        isPaused: isEditing || cooldownAction != nil || feedbackMoment != nil
+                    )
                 }
 
                 CooldownStatusLabel(record: record)
-                CooldownDecisionActions(record: record) { moment in
+                CooldownDecisionActions(record: record, onRequest: { cooldownAction = $0 }) { moment in
                     showFeedback(moment)
                 }
             }

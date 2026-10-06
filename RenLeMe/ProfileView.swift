@@ -7,6 +7,7 @@ struct ProfileView: View {
     @State private var pendingFeedbackMoment: MascotMoment?
     @State private var pendingFeedbackMessage: String?
     @State private var isShowingDataPrivacy = false
+    @State private var cooldownAction: CooldownActionRequest?
     var onShowWelcome: () -> Void = {}
 
     private var weekRecords: [ResistRecord] {
@@ -95,6 +96,10 @@ struct ProfileView: View {
             }
         }
         .navigationTitle("我的")
+        .navigationBarTitleDisplayMode(.inline)
+        .cooldownActionSheet(request: $cooldownAction) { moment in
+            showPendingFeedback(moment)
+        }
         .sheet(isPresented: $isShowingDataPrivacy) {
             NavigationStack {
                 DataPrivacyView()
@@ -118,7 +123,7 @@ struct ProfileView: View {
 
                 Spacer()
 
-                AssetMascotSticker(mood: .relieved, size: 78)
+                ReviewMascotSticker(size: 78)
             }
         }
     }
@@ -219,7 +224,7 @@ struct ProfileView: View {
                 } else {
                     VStack(spacing: 12) {
                         ForEach(pendingRecords) { record in
-                            PendingRecordRow(record: record) { moment in
+                            PendingRecordRow(record: record, onRequest: { cooldownAction = $0 }) { moment in
                                 showPendingFeedback(moment)
                             }
                         }
@@ -587,13 +592,14 @@ private struct BadgeView: View {
 
 private struct PendingRecordRow: View {
     let record: ResistRecord
+    let onRequest: (CooldownActionRequest) -> Void
     var onResolve: (MascotMoment) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             RecordRow(record: record)
             CooldownStatusLabel(record: record)
-            CooldownDecisionActions(record: record, onFeedback: onResolve)
+            CooldownDecisionActions(record: record, onRequest: onRequest, onFeedback: onResolve)
         }
     }
 }

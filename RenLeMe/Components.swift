@@ -64,6 +64,15 @@ enum MascotMoment: Equatable {
         }
     }
 
+    var reaction: MascotReaction? {
+        switch self {
+        case .resistedSuccess, .goalCompleted: .celebrate
+        case .coolingSaved: .waiting
+        case .gaveInSaved: .acknowledge
+        default: nil
+        }
+    }
+
     var feedbackTitle: String {
         switch self {
         case .resistedSuccess:
@@ -131,8 +140,6 @@ extension Color {
     static let secondaryInk = Color(red: 0.29, green: 0.29, blue: 0.34)
     static let fieldLabelInk = Color(red: 0.265, green: 0.265, blue: 0.315)
     static let fieldPlaceholderInk = Color(red: 0.46, green: 0.46, blue: 0.48)
-    static let accentPurple = Color.punchBlack
-    static let softPurple = Color(red: 1.0, green: 0.918, blue: 0.0)
 
     static func blockColor(for type: ResistType) -> Color {
         switch type {
@@ -150,40 +157,6 @@ extension Color {
         }
     }
 
-    func shadeVariant(_ index: Int) -> Color {
-        let opacity = 0.05 + Double(index % 5) * 0.035
-        return index.isMultiple(of: 2)
-            ? mix(with: .white, amount: opacity)
-            : mix(with: .punchBlack, amount: opacity * 0.58)
-    }
-
-    private func mix(with overlay: Color, amount: Double) -> Color {
-        Color(uiColor: UIColor(self).mixing(with: UIColor(overlay), amount: amount))
-    }
-}
-
-private extension UIColor {
-    func mixing(with other: UIColor, amount: Double) -> UIColor {
-        var r1: CGFloat = 0
-        var g1: CGFloat = 0
-        var b1: CGFloat = 0
-        var a1: CGFloat = 0
-        var r2: CGFloat = 0
-        var g2: CGFloat = 0
-        var b2: CGFloat = 0
-        var a2: CGFloat = 0
-
-        getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
-        other.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
-
-        let clamped = min(max(amount, 0), 1)
-        return UIColor(
-            red: r1 * (1 - clamped) + r2 * clamped,
-            green: g1 * (1 - clamped) + g2 * clamped,
-            blue: b1 * (1 - clamped) + b2 * clamped,
-            alpha: a1 * (1 - clamped) + a2 * clamped
-        )
-    }
 }
 
 extension Font {
@@ -193,6 +166,14 @@ extension Font {
 }
 
 extension ResistType {
+    var selectionReaction: MascotReaction {
+        switch self {
+        case .money: .walletHug
+        case .food: .cupLift
+        case .time: .clockLift
+        }
+    }
+
     var v2MascotColor: Color {
         switch self {
         case .money: .punchGreen
@@ -201,9 +182,6 @@ extension ResistType {
         }
     }
 
-    var v2MascotMood: MascotMood {
-        MascotMoment.idle.mood
-    }
 }
 
 extension ResistStatus {
@@ -215,9 +193,6 @@ extension ResistStatus {
         }
     }
 
-    var v2MascotMood: MascotMood {
-        mascotMoment.mood
-    }
 
     var mascotMoment: MascotMoment {
         switch self {
@@ -258,17 +233,6 @@ struct PunchyCard<Content: View>: View {
     }
 }
 
-struct Card<Content: View>: View {
-    var padding: CGFloat = 18
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        PunchyCard(fill: .cardBackground, padding: padding, borderWidth: 0) {
-            content
-        }
-    }
-}
-
 struct AppTextField: View {
     let placeholder: String
     @Binding var text: String
@@ -276,6 +240,12 @@ struct AppTextField: View {
     var axis: Axis = .horizontal
     var lineLimit: Int = 1
     var reservesSpace = false
+    var focus: FocusState<Bool>.Binding?
+    @FocusState private var internalFocus: Bool
+
+    private var inputFocus: FocusState<Bool>.Binding {
+        focus ?? $internalFocus
+    }
 
     var body: some View {
         ZStack(alignment: axis == .vertical ? .topLeading : .leading) {
@@ -291,6 +261,12 @@ struct AppTextField: View {
                 .appInputTextStyle()
                 .keyboardType(keyboardType)
                 .lineLimit(axis == .vertical ? lineLimit : 1, reservesSpace: reservesSpace)
+                .focused(inputFocus)
+                .accessibilityLabel(placeholder)
+                .onSubmit {
+                    inputFocus.wrappedValue = false
+                    UIApplication.shared.dismissKeyboard()
+                }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: axis == .vertical ? .topLeading : .leading)
@@ -315,16 +291,18 @@ extension View {
             .submitLabel(.done)
     }
 
-    func appKeyboardDismissal() -> some View {
+    func appKeyboardDismissal(onDismiss: @escaping () -> Void = {}) -> some View {
         self
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("完成") {
+                        onDismiss()
                         UIApplication.shared.dismissKeyboard()
                     }
                     .font(.rounded(15, weight: .black))
                     .foregroundStyle(Color.punchBlack)
+                    .accessibilityIdentifier("dismissKeyboardButton")
                 }
             }
     }
@@ -333,6 +311,12 @@ extension View {
 extension UIApplication {
     func dismissKeyboard() {
         sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive }
+            .flatMap(\.windows)
+            .filter(\.isKeyWindow)
+            .forEach { $0.endEditing(true) }
     }
 }
 
@@ -486,35 +470,23 @@ struct BlobMascotView: View {
 struct MascotMomentView: View {
     let moment: MascotMoment
     var size: CGFloat = 88
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    @ViewBuilder
     var body: some View {
-        BlobMascotView(color: moment.color, mood: moment.mood, size: size)
+        if moment == .coolingRecord {
+            AnimatedXiaoRenView(color: moment.color, expression: .cooling, size: size, reduceMotion: reduceMotion)
+        } else {
+            BlobMascotView(color: moment.color, mood: moment.mood, size: size)
+        }
     }
 }
 
-struct AssetMascotSticker: View {
-    let mood: MascotMood
+struct ReviewMascotSticker: View {
     var size: CGFloat = 54
 
-    private var assetName: String {
-        switch mood {
-        case .steady:
-            "xiaoren_asset_steady"
-        case .proud:
-            "xiaoren_asset_proud"
-        case .curious, .observe:
-            "xiaoren_asset_observe"
-        case .calm, .relieved:
-            "xiaoren_asset_relieved"
-        case .struggle:
-            "xiaoren_asset_struggle"
-        case .cooling:
-            "xiaoren_asset_cooling"
-        }
-    }
-
     var body: some View {
-        Image(assetName)
+        Image("xiaoren_asset_relieved")
             .resizable()
             .scaledToFit()
             .frame(width: size, height: size * 211 / 220)
@@ -524,38 +496,37 @@ struct AssetMascotSticker: View {
 }
 
 struct TypeMascotBadge: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let type: ResistType
     var size: CGFloat = 64
     var showsAccessory = true
+    var reaction: MascotReaction?
+    var reactionToken = 0
+    var isPaused = false
 
-    private var mascotMood: MascotMood {
+    private var expression: DynamicMascotExpression {
         switch type {
-        case .money:
-            .steady
-        case .food:
-            .observe
-        case .time:
-            .cooling
+        case .money, .time: .hello
+        case .food: .observe
         }
     }
 
     var body: some View {
-        ZStack {
-            BlobMascotView(color: type.v2MascotColor, mood: mascotMood, size: size * 0.94)
-                .offset(y: -size * 0.04)
-
-            if showsAccessory {
-                TypeMascotPoseAccessory(type: type)
-                    .frame(width: size * 1.15, height: size)
-            }
-        }
+        AnimatedXiaoRenView(
+            color: type.v2MascotColor, expression: expression, size: size * 0.94,
+            reduceMotion: reduceMotion, reaction: reaction, reactionToken: reactionToken,
+            isPaused: isPaused, heldType: showsAccessory ? type : nil
+        )
         .frame(width: size * 1.15, height: size)
         .accessibilityHidden(true)
     }
 }
 
-private struct TypeMascotPoseAccessory: View {
+struct TypeMascotPoseAccessory: View {
     let type: ResistType
+    var lift: CGFloat = 0
+    var squeeze: CGFloat = 0
+    var tilt: Double = 0
 
     var body: some View {
         GeometryReader { proxy in
@@ -566,29 +537,30 @@ private struct TypeMascotPoseAccessory: View {
             ZStack {
                 switch type {
                 case .money:
-                    mascotArm(from: CGPoint(x: w * 0.22, y: h * 0.58), to: CGPoint(x: w * 0.46, y: h * 0.69), control: CGPoint(x: w * 0.31, y: h * 0.70), stroke: stroke)
-                    mascotArm(from: CGPoint(x: w * 0.79, y: h * 0.58), to: CGPoint(x: w * 0.66, y: h * 0.70), control: CGPoint(x: w * 0.78, y: h * 0.72), stroke: stroke)
+                    let centerY = h * (0.80 - lift * 0.045)
+                    mascotArm(from: CGPoint(x: w * 0.24, y: h * 0.66), to: CGPoint(x: w * (0.39 + squeeze * 0.02), y: centerY), control: CGPoint(x: w * 0.31, y: centerY + h * 0.03), stroke: stroke)
+                    mascotArm(from: CGPoint(x: w * 0.78, y: h * 0.66), to: CGPoint(x: w * (0.69 - squeeze * 0.02), y: centerY), control: CGPoint(x: w * 0.75, y: centerY + h * 0.03), stroke: stroke)
                     WalletAccessory()
-                        .frame(width: w * 0.42, height: h * 0.30)
-                        .position(x: w * 0.57, y: h * 0.70)
+                        .frame(width: w * 0.36, height: h * 0.22)
+                        .scaleEffect(x: 1 - squeeze * 0.08, y: 1)
+                        .rotationEffect(.degrees(tilt))
+                        .position(x: w * 0.54, y: centerY)
                 case .food:
-                    mascotArm(from: CGPoint(x: w * 0.24, y: h * 0.58), to: CGPoint(x: w * 0.45, y: h * 0.67), control: CGPoint(x: w * 0.30, y: h * 0.75), stroke: stroke)
-                    mascotArm(from: CGPoint(x: w * 0.78, y: h * 0.58), to: CGPoint(x: w * 0.63, y: h * 0.67), control: CGPoint(x: w * 0.76, y: h * 0.76), stroke: stroke)
+                    let centerY = h * (0.82 - lift * 0.04)
+                    mascotArm(from: CGPoint(x: w * 0.25, y: h * 0.66), to: CGPoint(x: w * 0.45, y: centerY + h * 0.01), control: CGPoint(x: w * 0.31, y: centerY + h * 0.025), stroke: stroke)
+                    mascotArm(from: CGPoint(x: w * 0.76, y: h * 0.66), to: CGPoint(x: w * 0.64, y: centerY), control: CGPoint(x: w * 0.74, y: centerY + h * 0.025), stroke: stroke)
                     MilkTeaAccessory()
-                        .frame(width: w * 0.34, height: h * 0.45)
-                        .position(x: w * 0.55, y: h * 0.68)
+                        .frame(width: w * 0.25, height: h * 0.30)
+                        .rotationEffect(.degrees(tilt))
+                        .position(x: w * 0.54, y: centerY)
                 case .time:
-                    mascotArm(from: CGPoint(x: w * 0.22, y: h * 0.60), to: CGPoint(x: w * 0.50, y: h * 0.63), control: CGPoint(x: w * 0.32, y: h * 0.74), stroke: stroke)
-                    mascotArm(from: CGPoint(x: w * 0.80, y: h * 0.54), to: CGPoint(x: w * 0.69, y: h * 0.61), control: CGPoint(x: w * 0.84, y: h * 0.69), stroke: stroke)
+                    let centerY = h * (0.80 - lift * 0.055)
+                    mascotArm(from: CGPoint(x: w * 0.24, y: h * 0.65), to: CGPoint(x: w * 0.43, y: centerY + h * 0.04), control: CGPoint(x: w * 0.32, y: centerY + h * 0.06), stroke: stroke)
+                    mascotArm(from: CGPoint(x: w * 0.77, y: h * 0.65), to: CGPoint(x: w * 0.68, y: centerY + h * 0.04), control: CGPoint(x: w * 0.77, y: centerY + h * 0.06), stroke: stroke)
                     ClockAccessory()
-                        .frame(width: w * 0.38, height: h * 0.38)
-                        .position(x: w * 0.62, y: h * 0.64)
-
-                    Path { path in
-                        path.move(to: CGPoint(x: w * 0.83, y: h * 0.22))
-                        path.addQuadCurve(to: CGPoint(x: w * 0.88, y: h * 0.43), control: CGPoint(x: w * 0.95, y: h * 0.32))
-                    }
-                    .stroke(Color.punchBlue, style: StrokeStyle(lineWidth: max(3, stroke * 0.72), lineCap: .round))
+                        .frame(width: w * 0.29, height: h * 0.29)
+                        .rotationEffect(.degrees(tilt))
+                        .position(x: w * 0.55, y: centerY)
                 }
             }
         }
@@ -710,43 +682,6 @@ private struct ClockAccessory: View {
     }
 }
 
-struct MascotFeedbackCard: View {
-    let moment: MascotMoment
-    var message: String?
-
-    private var usesDarkText: Bool {
-        moment.feedbackUsesDarkText
-    }
-
-    private var textColor: Color {
-        usesDarkText ? .punchBlack : .white
-    }
-
-    var body: some View {
-        PunchyCard(fill: moment.feedbackFill, cornerRadius: 30, padding: 16) {
-            HStack(spacing: 14) {
-                MascotMomentView(moment: moment, size: 78)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(moment.feedbackTitle)
-                        .font(.rounded(22, weight: .black))
-                        .foregroundStyle(textColor)
-
-                    if !(message ?? moment.feedbackMessage).isEmpty {
-                        Text(message ?? moment.feedbackMessage)
-                            .font(.rounded(15, weight: .black))
-                            .foregroundStyle(textColor.opacity(0.78))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-
-                Spacer(minLength: 0)
-            }
-        }
-        .transition(.scale(scale: 0.92).combined(with: .opacity))
-    }
-}
-
 struct MascotFeedbackPopup: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let moment: MascotMoment
@@ -764,7 +699,8 @@ struct MascotFeedbackPopup: View {
                     color: moment.color,
                     expression: DynamicMascotExpression(moment: moment),
                     size: 124,
-                    reduceMotion: reduceMotion
+                    reduceMotion: reduceMotion,
+                    reaction: moment.reaction
                 )
                     .padding(.top, 4)
 
@@ -1682,15 +1618,9 @@ struct CustomPropCard: View {
                     .offset(x: 24, y: 24)
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("自选")
-                    .font(.rounded(16, weight: .black))
-                    .foregroundStyle(Color.ink)
-
-                Text("自己填写")
-                    .font(.rounded(11, weight: .bold))
-                    .foregroundStyle(Color.secondaryInk)
-            }
+            Text("自选")
+                .font(.rounded(16, weight: .black))
+                .foregroundStyle(Color.ink)
 
             ValueDefaultChip(text: "可拍照 / 相册", fill: Color.softBlockColor(for: type))
         }
@@ -1703,38 +1633,6 @@ struct CustomPropCard: View {
                 .stroke(isSelected ? Color.punchBlack : Color.clear, lineWidth: isSelected ? 3 : 0)
         }
         .shadow(color: .punchBlack.opacity(isSelected ? 0.15 : 0.08), radius: 0, x: 0, y: isSelected ? 6 : 3)
-    }
-}
-
-struct PropCategorySection: View {
-    let title: String
-    let templates: [PropTemplate]
-    let selectedTemplate: PropTemplate?
-    let onSelect: (PropTemplate) -> Void
-
-    private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10)
-    ]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.rounded(18, weight: .black))
-                .foregroundStyle(Color.ink)
-
-            LazyVGrid(columns: columns, spacing: 10) {
-                ForEach(templates) { template in
-                    Button {
-                        onSelect(template)
-                    } label: {
-                        PropCard(template: template, isSelected: selectedTemplate?.id == template.id)
-                    }
-                    .buttonStyle(PressableScaleStyle())
-                    .accessibilityLabel("选择\(template.title)")
-                }
-            }
-        }
     }
 }
 
@@ -1753,34 +1651,6 @@ struct StatusChip: View {
             .padding(.vertical, 7)
             .background(fill)
             .clipShape(Capsule())
-    }
-}
-
-struct PrimaryBlobButton: View {
-    let title: String
-    var systemImage: String?
-    var fill: Color = .punchBlack
-    var foreground: Color = .white
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                if let systemImage {
-                    Image(systemName: systemImage)
-                        .font(.rounded(17, weight: .black))
-                }
-                Text(title)
-                    .font(.rounded(18, weight: .black))
-            }
-            .foregroundStyle(foreground)
-            .frame(minHeight: 54)
-            .frame(maxWidth: .infinity)
-            .background(fill)
-            .clipShape(Capsule())
-            .shadow(color: .punchBlack.opacity(0.22), radius: 0, x: 0, y: 6)
-        }
-        .buttonStyle(PressableScaleStyle())
     }
 }
 
@@ -1844,21 +1714,25 @@ struct AssetBlockCard: View {
     let type: ResistType
     let value: String
     var subtitle: String
+    var isPaused = false
+    var onReaction: () -> Void = {}
     @State private var bounceToken = 0
+    @State private var lastPlayedToken = 0
     @State private var isReacting = false
 
-    private var mascotMood: MascotMood {
-        if isReacting {
-            return type == .food ? .relieved : .proud
-        }
-
+    private var mascotExpression: DynamicMascotExpression {
         switch type {
-        case .money:
-            return .proud
-        case .food:
-            return .relieved
-        case .time:
-            return .cooling
+        case .money: .proud
+        case .food: .relieved
+        case .time: .hello
+        }
+    }
+
+    private var reaction: MascotReaction {
+        switch type {
+        case .money: .moneyPride
+        case .food: .foodRelief
+        case .time: .timeStretch
         }
     }
 
@@ -1867,69 +1741,70 @@ struct AssetBlockCard: View {
             playReaction()
         } label: {
             PunchyCard(fill: Color.blockColor(for: type), cornerRadius: 28, padding: subtitle.isEmpty ? 14 : 16) {
-                ZStack(alignment: .topTrailing) {
-                    VStack(alignment: .leading, spacing: subtitle.isEmpty ? 8 : 12) {
+                VStack(alignment: .leading, spacing: subtitle.isEmpty ? 8 : 12) {
+                    HStack(spacing: 6) {
                         Text(type.assetTitle)
                             .font(.rounded(15, weight: .black))
                             .foregroundStyle(type == .time ? Color.punchBlack : .white)
 
-                        Text(value)
-                            .font(.rounded(28, weight: .black))
-                            .foregroundStyle(type == .time ? Color.punchBlack : .white)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.58)
-
-                        if !subtitle.isEmpty {
-                            Text(subtitle)
-                                .font(.rounded(12, weight: .bold))
-                                .foregroundStyle((type == .time ? Color.punchBlack : .white).opacity(0.78))
-                                .lineLimit(2)
-                        }
+                        Spacer(minLength: 0)
+                        AnimatedXiaoRenView(
+                            color: Color(red: 1.0, green: 0.949, blue: 0.839),
+                            expression: mascotExpression,
+                            size: 42,
+                            reduceMotion: reduceMotion,
+                            reaction: isReacting ? reaction : nil,
+                            reactionToken: bounceToken,
+                            isPaused: isPaused
+                        )
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                    AssetMascotSticker(mood: mascotMood, size: isReacting ? 50 : 42)
-                        .rotationEffect(.degrees(isReacting ? mascotReactionRotation : 0))
-                        .offset(x: 6 + (isReacting ? mascotReactionOffset : 0), y: -6)
-                        .animation(reduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.46), value: isReacting)
+                    Text(value)
+                        .font(.rounded(28, weight: .black))
+                        .foregroundStyle(type == .time ? Color.punchBlack : .white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.58)
+
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.rounded(12, weight: .bold))
+                            .foregroundStyle((type == .time ? Color.punchBlack : .white).opacity(0.78))
+                            .lineLimit(2)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .buttonStyle(PlainButtonStyle())
-        .modifier(ShakeEffect(animatableData: CGFloat(bounceToken)))
+        .modifier(ShakeEffect(amount: reduceMotion || isPaused ? 0 : 3, animatableData: CGFloat(bounceToken)))
         .accessibilityLabel("\(type.assetTitle)，\(value)，点击查看反馈")
-    }
-
-    private var mascotReactionRotation: Double {
-        switch type {
-        case .money: -10
-        case .food: 8
-        case .time: -7
+        .task(id: bounceToken) {
+            guard bounceToken > lastPlayedToken, !reduceMotion, !isPaused else { return }
+            lastPlayedToken = bounceToken
+            isReacting = true
+            do {
+                try await Task.sleep(for: .seconds(reaction.duration))
+            } catch {
+                return
+            }
+            isReacting = false
         }
-    }
-
-    private var mascotReactionOffset: CGFloat {
-        switch type {
-        case .money: -4
-        case .food: 2
-        case .time: 4
+        .onChange(of: isPaused) { _, paused in
+            if paused { isReacting = false }
         }
+        .onChange(of: reduceMotion) { _, reduced in
+            if reduced { isReacting = false }
+        }
+        .onDisappear { isReacting = false }
     }
 
     private func playReaction() {
-        if reduceMotion { return }
-
+        guard !isReacting else { return }
         AppHaptics.lightTap()
-
-        withAnimation(.spring(response: 0.2, dampingFraction: 0.58)) {
+        onReaction()
+        guard !reduceMotion else { return }
+        withAnimation(.easeOut(duration: 0.35)) {
             bounceToken += 1
-            isReacting = true
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
-            withAnimation(.spring(response: 0.26, dampingFraction: 0.72)) {
-                isReacting = false
-            }
         }
     }
 }
@@ -2020,13 +1895,83 @@ struct CooldownStatusLabel: View {
     }
 }
 
+struct CooldownActionRequest: Identifiable {
+    enum Action {
+        case resolve(ResistStatus)
+        case delay
+    }
+
+    let id = UUID()
+    let record: ResistRecord
+    let action: Action
+}
+
+private enum CooldownActionResult {
+    case resolved(ResistRecord, ResistStatus, Double?)
+    case delayed(ResistRecord, TimeInterval)
+}
+
+extension View {
+    func cooldownActionSheet(
+        request: Binding<CooldownActionRequest?>,
+        onFeedback: @escaping (MascotMoment) -> Void
+    ) -> some View {
+        modifier(CooldownActionSheetPresenter(request: request, onFeedback: onFeedback))
+    }
+}
+
+private struct CooldownActionSheetPresenter: ViewModifier {
+    @Binding var request: CooldownActionRequest?
+    let onFeedback: (MascotMoment) -> Void
+    @State private var pendingResult: CooldownActionResult?
+
+    func body(content: Content) -> some View {
+        content.sheet(item: $request, onDismiss: applyPendingResult) { request in
+            Group {
+                switch request.action {
+                case .resolve(let status):
+                    CooldownValueSheet(record: request.record, status: status) { value in
+                        pendingResult = .resolved(request.record, status, value)
+                        self.request = nil
+                    }
+                case .delay:
+                    CooldownDelaySheet(record: request.record) { interval in
+                        pendingResult = .delayed(request.record, interval)
+                        self.request = nil
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+        }
+    }
+
+    private func applyPendingResult() {
+        guard let result = pendingResult else { return }
+        pendingResult = nil
+
+        // Keep the presenting row alive until the sheet finishes dismissing.
+        switch result {
+        case .resolved(let record, let status, let value):
+            CooldownCoordinator.resolve(record, as: status, estimatedValue: value)
+            if status == .resisted {
+                AppHaptics.success()
+                onFeedback(.resistedSuccess)
+            } else {
+                AppHaptics.lightTap()
+                onFeedback(.gaveInSaved)
+            }
+        case .delayed(let record, let interval):
+            CooldownCoordinator.extend(record, by: interval)
+            AppHaptics.lightTap()
+            onFeedback(.coolingSaved)
+        }
+    }
+}
+
 struct CooldownDecisionActions: View {
     let record: ResistRecord
+    var onRequest: (CooldownActionRequest) -> Void
     var onFeedback: (MascotMoment) -> Void = { _ in }
-
-    @State private var requestedStatus: ResistStatus?
-    @State private var isShowingValueSheet = false
-    @State private var isShowingDelayOptions = false
 
     var body: some View {
         VStack(spacing: 10) {
@@ -2049,7 +1994,7 @@ struct CooldownDecisionActions: View {
             }
 
             Button {
-                isShowingDelayOptions = true
+                onRequest(CooldownActionRequest(record: record, action: .delay))
             } label: {
                 Label("再等一会", systemImage: "clock.arrow.circlepath")
                     .font(.rounded(15, weight: .black))
@@ -2060,25 +2005,6 @@ struct CooldownDecisionActions: View {
                     .clipShape(Capsule())
             }
             .buttonStyle(PressableScaleStyle())
-        }
-        .confirmationDialog("再等多久？", isPresented: $isShowingDelayOptions, titleVisibility: .visible) {
-            ForEach(delayOptions, id: \.seconds) { option in
-                Button(option.title) {
-                    CooldownCoordinator.extend(record, by: option.seconds)
-                    AppHaptics.lightTap()
-                    onFeedback(.coolingSaved)
-                }
-            }
-
-            Button("取消", role: .cancel) {}
-        }
-        .sheet(isPresented: $isShowingValueSheet) {
-            if let requestedStatus {
-                CooldownValueSheet(record: record, status: requestedStatus) { value in
-                    resolve(as: requestedStatus, estimatedValue: value)
-                }
-                .presentationDetents([.medium])
-            }
         }
     }
 
@@ -2111,8 +2037,7 @@ struct CooldownDecisionActions: View {
         if record.hasEstimatedValue {
             resolve(as: status, estimatedValue: nil)
         } else {
-            requestedStatus = status
-            isShowingValueSheet = true
+            onRequest(CooldownActionRequest(record: record, action: .resolve(status)))
         }
     }
 
@@ -2124,6 +2049,49 @@ struct CooldownDecisionActions: View {
         } else {
             AppHaptics.lightTap()
             onFeedback(.gaveInSaved)
+        }
+    }
+
+}
+
+private struct CooldownDelaySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let record: ResistRecord
+    let onComplete: (TimeInterval) -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(record.title)
+                        .font(.rounded(26, weight: .black))
+                        .foregroundStyle(Color.ink)
+
+                    ForEach(delayOptions, id: \.seconds) { option in
+                        Button {
+                            onComplete(option.seconds)
+                        } label: {
+                            Label(option.title, systemImage: "clock.arrow.circlepath")
+                                .font(.rounded(17, weight: .black))
+                                .foregroundStyle(Color.punchBlack)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(16)
+                                .background(Color.softBlockColor(for: record.type))
+                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        }
+                        .buttonStyle(PressableScaleStyle())
+                    }
+                }
+                .padding(20)
+            }
+            .background(Color.appBackground.ignoresSafeArea())
+            .navigationTitle("再等多久？")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+            }
         }
     }
 
@@ -2207,6 +2175,11 @@ private struct CooldownValueSheet: View {
             .navigationTitle("完成冷静")
             .navigationBarTitleDisplayMode(.inline)
             .appKeyboardDismissal()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+            }
         }
     }
 
@@ -2221,6 +2194,5 @@ private struct CooldownValueSheet: View {
     private func finish(with value: Double?) {
         UIApplication.shared.dismissKeyboard()
         onComplete(value)
-        dismiss()
     }
 }

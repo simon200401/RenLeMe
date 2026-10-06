@@ -4,6 +4,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.mascotMotionEnabled) private var motionEnabled
     @Query(sort: \ResistRecord.createdAt, order: .reverse) private var records: [ResistRecord]
     @Query(sort: \Goal.createdAt, order: .forward) private var goals: [Goal]
     @State private var editingGoal: Goal?
@@ -12,6 +13,12 @@ struct HomeView: View {
     @State private var recordToDelete: ResistRecord?
     @State private var isConfirmingDelete = false
     @State private var deleteFailed = false
+    @State private var hasGreeted = false
+    @State private var greeting: MascotReaction?
+    @State private var activeAssetType: ResistType?
+    @State private var mascotReaction: MascotReaction?
+    @State private var mascotReactionToken = 0
+    @State private var mascotTapCount = 0
 
     let onAddRecord: () -> Void
 
@@ -82,6 +89,35 @@ struct HomeView: View {
         }
         .navigationTitle("忍了么")
         .navigationBarTitleDisplayMode(.inline)
+        .task(id: motionEnabled) {
+            guard motionEnabled, !hasGreeted else { return }
+            hasGreeted = true
+            greeting = .greeting
+            defer { greeting = nil }
+            try? await Task.sleep(for: .seconds(MascotReaction.greeting.duration))
+        }
+        .task(id: activeAssetType) {
+            guard let activeAssetType else { return }
+            do {
+                try await Task.sleep(for: .seconds(1.3))
+            } catch {
+                return
+            }
+            if self.activeAssetType == activeAssetType { self.activeAssetType = nil }
+        }
+        .task(id: mascotReactionToken) {
+            guard let mascotReaction else { return }
+            do {
+                try await Task.sleep(for: .seconds(mascotReaction.duration))
+            } catch {
+                return
+            }
+            self.mascotReaction = nil
+        }
+        .onChange(of: motionEnabled) { _, enabled in
+            if !enabled { mascotReaction = nil }
+        }
+        .onDisappear { mascotReaction = nil }
         .alert("删除这条记录？", isPresented: $isConfirmingDelete) {
             Button("删除", role: .destructive) { deleteSelectedRecord() }
             Button("取消", role: .cancel) { recordToDelete = nil }
@@ -111,17 +147,47 @@ struct HomeView: View {
 
                     Spacer()
 
-                    AnimatedXiaoRenView(
-                        color: todayCount > 0 ? Color.punchGreen : Color(red: 1.0, green: 0.949, blue: 0.839),
-                        expression: todayCount > 0 ? .celebrate : .hello,
-                        size: 72,
-                        reduceMotion: reduceMotion
-                    )
+                    Button(action: greetMascot) {
+                        AnimatedXiaoRenView(
+                            color: todayCount > 0 ? Color.punchGreen : Color(red: 1.0, green: 0.949, blue: 0.839),
+                            expression: heroExpression,
+                            size: 72,
+                            reduceMotion: reduceMotion,
+                            reaction: mascotReaction ?? greeting,
+                            reactionToken: mascotReactionToken,
+                            allowsIdleMotion: true,
+                            isPaused: activeAssetType != nil || completedGoalMoment != nil || editingGoal != nil
+                        )
+                        .frame(width: 76, height: 76)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .accessibilityLabel("小忍")
+                    .accessibilityHint("轻点和小忍打个招呼")
+                    .accessibilityIdentifier("homeMascotButton")
                 }
 
                 WeekDotRow(completedWeekdays: completedWeekdays, activeColor: .punchBlack)
             }
         }
+    }
+
+    private var heroExpression: DynamicMascotExpression {
+        switch mascotReaction {
+        case .some(.shy): .observe
+        case .some(.headTilt): .curious
+        default: todayCount > 0 ? .proud : .hello
+        }
+    }
+
+    private func greetMascot() {
+        guard motionEnabled, greeting == nil, mascotReaction == nil,
+              activeAssetType == nil, completedGoalMoment == nil, editingGoal == nil else { return }
+        let reactions: [MascotReaction] = [.shy, .headTilt, .wink]
+        mascotReaction = reactions[mascotTapCount % reactions.count]
+        mascotTapCount += 1
+        mascotReactionToken += 1
+        AppHaptics.lightTap()
     }
 
     private var assetGrid: some View {
@@ -140,13 +206,26 @@ struct HomeView: View {
             .accessibilityIdentifier("assetPeriodPicker")
 
             VStack(spacing: 12) {
-                AssetBlockCard(type: .money, value: assets.money.moneyString, subtitle: "")
+                assetCard(.money, value: assets.money.moneyString)
                 HStack(spacing: 12) {
-                    AssetBlockCard(type: .food, value: assets.calories.calorieString, subtitle: "")
-                    AssetBlockCard(type: .time, value: assets.minutes.displayValue(for: .time), subtitle: "")
+                    assetCard(.food, value: assets.calories.calorieString)
+                    assetCard(.time, value: assets.minutes.displayValue(for: .time))
                 }
             }
         }
+    }
+
+    private func assetCard(_ type: ResistType, value: String) -> some View {
+        AssetBlockCard(
+            type: type,
+            value: value,
+            subtitle: "",
+            isPaused: completedGoalMoment != nil || editingGoal != nil || (activeAssetType != nil && activeAssetType != type),
+            onReaction: {
+                mascotReaction = nil
+                activeAssetType = type
+            }
+        )
     }
 
     @ViewBuilder

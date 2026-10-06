@@ -1,17 +1,21 @@
 # 忍了么 v1.0 上线准备清单
 
-更新时间：2026-09-22
+更新时间：2026-10-06
 
-当前结论：产品功能、Release 分析和 Apple Development 签名 Archive 已通过，隐私政策与支持页面已上线。正式上线仍需完成真机回归、App Store 分发上传、TestFlight 和 App Store Connect 提交。
+当前结论：产品主流程已实现，隐私政策与支持页面已部署。此前已提交旧构建并收到 2.1 补充资料要求；当前工作区又包含键盘、冷静箱、小忍动作和目标关联修复，需要重新打包并验证。最新上传、处理及审核结果以 App Store Connect 为准。
 
-App Store 构建源码基线：`a64996d`（目标图片与目标值单位功能已包含）。
+当前工程版本：`1.0 (3)`。如构建号 3 已上传，应继续递增；发布必须包含当前工作区改动，不能只按旧 Git 提交打包。
+
+历史 Release Archive：2026-09-22 21:58（香港时间），源码提交 `365951b`，版本 `1.0 (1)`。不包含后续修复，不用于本次发布。
+
+本机归档路径：`/Users/simonx/Library/Developer/Xcode/Archives/2026-09-22/RenLeMe-1.0-1-365951b.xcarchive`。
 
 ## v1.0 产品边界
 
 - 本地使用，不提供账号、云同步或服务器上传。
 - 不做联网食物搜索、广告、付费订阅、社交排名或 AI 聊天。
 - 食物数据来自内置本地库和模板默认热量，用户可以手动修改。
-- Live Activity / 灵动岛不进入 v1.0；扩展源码保留，但已从主工程构建与签名链路移除。
+- Live Activity / 灵动岛不进入 v1.0；扩展及共享源码、工程引用、旧设计方案均已移除。
 
 ## 已自动完成并验证
 
@@ -42,7 +46,7 @@ App Store 构建源码基线：`a64996d`（目标图片与目标值单位功能�
 - [ ] 在 Organizer 上传时确认 Xcode 能创建或使用 Apple Distribution 证书。
 - [ ] 使用真机完成一次签名安装。
 
-当前钥匙串只有 Apple Development 身份；Distribution 身份通常可由 Organizer 上传流程自动创建。详细路径见 `APP_STORE_SUBMISSION_GUIDE.md` 的第 1-3 节。
+2026-09-22 已确认钥匙串中 Apple Development 与 Apple Distribution 身份均有效。最新 Archive 使用 Apple Development 签名，上传时仍需完成分发签名和描述文件验证。详细路径见 `APP_STORE_SUBMISSION_GUIDE.md` 的第 1-3 节。
 
 ## 需要用户完成：真机回归
 
@@ -53,18 +57,20 @@ App Store 构建源码基线：`a64996d`（目标图片与目标值单位功能�
 ## 需要用户完成：发布链路
 
 - [x] Netlify 正式站点已部署并验证：`https://renleme.netlify.app`。
-- [ ] 在 App Store Connect 创建 App 记录。
-- [ ] 上传 Archive 到 App Store Connect。
+- [x] 已创建 App Store Connect 记录并提交过旧构建。
+- [ ] 上传包含当前修复的新 Archive 到 App Store Connect。
 - [ ] 添加 TestFlight 内部测试版本，并完成一次干净安装回归。
 - [ ] 确认 TestFlight Release 不插入 Demo 数据。
 - [ ] 使用最终构建截取 App Store 截图。
 - [ ] 完成隐私问卷、年龄分级、审核备注和商店文案。
-- [ ] 提交审核。
+- [ ] 提供最新真机录屏并回复 2.1 补充要求，更新审核 Notes。
+- [ ] 选择最终构建，重新提交审核。
 
 ## 发布材料位置
 
 - App Store 文案与问卷答案：`APP_STORE_LISTING_DRAFT.md`
 - 提交操作步骤：`APP_STORE_SUBMISSION_GUIDE.md`
+- 2.1 审核回复与录屏脚本：`APP_REVIEW_RESPONSE_2_1.md`
 - 真机回归清单：`QA_CHECKLIST.md`
 - 隐私政策正文：`PRIVACY_POLICY_DRAFT.md`
 - 已部署静态站点源码：`release-site/`

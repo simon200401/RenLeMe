@@ -108,6 +108,8 @@ struct EditRecordView: View {
         }
         .navigationTitle("编辑记录")
         .navigationBarTitleDisplayMode(.inline)
+        .appKeyboardDismissal()
+        .onSubmit { UIApplication.shared.dismissKeyboard() }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("取消") {

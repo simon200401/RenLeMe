@@ -1,19 +1,19 @@
 # 忍了么 1.0 上架执行指南
 
-更新时间：2026-09-22
+更新时间：2026-10-06
 
 ## 当前已准备
 
 - Bundle ID：`com.simonx.renleme`
 - 版本：`1.0`
-- 构建号：`1`
+- 当前工程构建号：`3`；上传前须确认大于 App Store Connect 中已有构建号
 - 平台：iPhone，最低 iOS 17
 - 类别：Lifestyle / 生活
 - 隐私清单：`RenLeMe/PrivacyInfo.xcprivacy`
 - 商店文案：`APP_STORE_LISTING_DRAFT.md`
 - 隐私页：`release-site/privacy.html`
 - 支持页：`release-site/support.html`
-- 灵动岛扩展 Target 已从工程移除
+- 灵动岛扩展与源码已从工程移除，只有主 App 需要签名
 - Apple Development 签名 Archive 已验证通过
 
 ## 1. 接受 Apple 协议
@@ -35,7 +35,7 @@
 5. Team 选择你的有效开发者团队；Bundle Identifier 保持 `com.simonx.renleme`。
 6. 顶部运行目标选择 `Any iOS Device (arm64)`，确认 Signing 区域不再显示红色错误。当前工程已成功生成 Apple Development 签名 Archive。
 
-当前钥匙串已有 Apple Development 证书，但尚未发现 Apple Distribution 证书。上传时如果 Xcode 不能自动创建：进入 `Xcode → Settings → Accounts → Manage Certificates`，点击 `+` 创建 `Apple Distribution`，再回到 Organizer 重试。
+2026-09-22 已确认钥匙串中 Apple Development 与 Apple Distribution 证书均有效。上传时由 Organizer 完成分发签名与描述文件验证。
 
 ## 3. 真机回归
 
@@ -54,13 +54,15 @@
 
 ## 5. Archive 与 TestFlight
 
+必须用当前工作区重新 Archive。9 月 22 日的 `1.0 (1)` 是历史归档，不包含后续键盘、冷静箱、目标关联与小忍动作改动，不应作为本次上传版本。
+
 1. Xcode 顶部运行目标选择 `Any iOS Device (arm64)`。
-2. 选择 `Product → Archive`。
+2. 选择 `Product → Archive`，不要点击运行按钮；该目标仅用于构建，不能运行 App。
 3. Organizer 出现后选择最新 Archive，点击 `Distribute App → App Store Connect → Upload`。
 4. 上传完成后打开 `App Store Connect → 忍了么 → TestFlight`，等待 Apple 处理构建。
 5. 添加内部测试员并安装 TestFlight 版本，删除旧版后做一次干净首启检查。
 
-每次重新上传必须增加 Build：TARGETS `RenLeMe → General → Build`，从 1 改为 2、3……
+每次重新上传必须使用未上传过的更大 Build：TARGETS `RenLeMe → General → Build`。当前工程为 3，如后台已有 3，应改为 4 或更大。
 
 ## 6. App Privacy 与审核信息
 
@@ -70,7 +72,7 @@
    - Support URL：`https://renleme.netlify.app/support.html`
    - Privacy Policy URL：`https://renleme.netlify.app/privacy.html`
 4. Review Information 不需要测试账号。
-5. Notes 使用 `APP_STORE_LISTING_DRAFT.md` 中的 App Review 备注。
+5. Notes 使用 `APP_STORE_LISTING_DRAFT.md` 中的 App Review 备注；收到 2.1 补充要求时，按 `APP_REVIEW_RESPONSE_2_1.md` 提供真机录屏和六项说明。
 6. Export Compliance：工程已声明不使用非豁免加密；如果后台仍询问，选择 App 不使用非豁免加密。
 
 ## 7. 截图与提交

@@ -131,7 +131,9 @@ struct AppRootView: View {
             }
             .tag(AppTab.profile)
         }
-        .tint(.accentPurple)
+        .tint(.punchBlack)
+        .environment(\.mascotMotionEnabled,
+                     !isShowingLaunchSplash && !isShowingWelcomeOnboarding && !isPresentingRecord && routedCooldownRecord == nil)
         .blur(radius: isShowingWelcomeOnboarding ? 2.4 : 0)
         .saturation(isShowingWelcomeOnboarding ? 0.58 : 1)
         .brightness(isShowingWelcomeOnboarding ? -0.05 : 0)
@@ -140,12 +142,14 @@ struct AppRootView: View {
         .sheet(isPresented: $isPresentingRecord) {
             NavigationStack {
                 RecordFlowView(isModal: true)
+                    .environment(\.mascotMotionEnabled, true)
             }
             .presentationDetents([.large])
         }
         .sheet(item: $routedCooldownRecord) { record in
             NavigationStack {
                 RecordDetailView(record: record)
+                    .environment(\.mascotMotionEnabled, true)
             }
         }
         .overlay {
@@ -176,7 +180,9 @@ struct AppRootView: View {
         .onChange(of: records.count) { _, _ in
             routePendingCooldownIfNeeded()
         }
-        .appKeyboardDismissal()
+        .onChange(of: selectedTab) { _, _ in
+            UIApplication.shared.dismissKeyboard()
+        }
     }
 
     private func finishLaunchSplash() {

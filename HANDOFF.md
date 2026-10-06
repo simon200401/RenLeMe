@@ -20,11 +20,11 @@ App 把“忍住”转化成三类可见资产：
 
 ## 当前版本状态
 
-这是一个可运行的 SwiftUI + SwiftData Demo，已完成主流程。
+这是一个 SwiftUI + SwiftData 原生 iOS App，已完成主流程，正在准备最新 TestFlight 构建和 App Store 审核补充资料。更新时间：2026-10-06。
 
 已完成：
 
-- 首页资产总览。
+- 首页资产总览，可按本周、本月、全部筛选。
 - 记录页完整流程。
 - 道具模板系统。
 - 自选道具图片。
@@ -40,13 +40,13 @@ App 把“忍住”转化成三类可见资产：
 
 还未完成或待加强：
 
-- 单元测试/UI 测试。
-- App Store 隐私政策 URL 和支持 URL 部署。
+- 真机完整回归和 UI 自动测试；已有小忍动作、目标统计的独立自动测试，运行方式见 `Tests/README.md`。
+- 最新构建的 TestFlight 回归，以及 2.1 审核所需真机录屏和补充说明。
 - 真机多尺寸完整回归。
 - 更完整的趋势图表。
 - 冷静箱提醒设置页。
 - 用户自建食物库编辑入口。
-- 小忍冷静箱 Live Activity / 灵动岛展示暂不进入 v1，扩展源码保留但未接入主 App。
+- 不再保留灵动岛扩展，冷静箱继续使用 App 内处理和本地通知。
 
 ## 技术栈
 
@@ -116,6 +116,13 @@ RenLeMe/Components.swift
 - 卡片、按钮、状态 chip、进度条。
 - 本地图片存储 helper。
 - 键盘收起 modifier。
+
+```text
+RenLeMe/MascotMotion.swift
+RenLeMe/CooldownCoordinator.swift
+```
+
+分别负责小忍短动作/姿态采样，以及冷静箱状态处理和本地通知。不要按旧文件名寻找灵动岛管理器。
 
 ```text
 RenLeMe/RecordFlowView.swift
@@ -194,7 +201,9 @@ RenLeMe/EditRecordView.swift
 目标：
 
 - 首次安装目标为空，由用户自行新建。旧测试版中的三张系统预设目标会在升级时清理。
-- 目标进度优先由关联 `goalId` 的 resisted 记录计算。
+- 目标进度只由关联 `goalId`、有数值的 resisted 记录计算，一笔记录只计入一个目标。
+- 新记录在同类只有一个目标时默认关联；有多个时由用户选择，可手动选择暂不关联。目标选择位于道具卡片冷静箱入口之前，不隐藏在补充信息中。
+- 旧的未关联记录不自动改写，可在编辑记录中补上目标关联。
 
 冷静箱：
 
@@ -252,8 +261,10 @@ outputs/manual-portfolio/presentations/renleme-portfolio/assets/app-screens/
 RELEASE_READINESS.md
 PRIVACY_POLICY_DRAFT.md
 APP_STORE_LISTING_DRAFT.md
-DYNAMIC_ISLAND_DESIGN.md
+APP_REVIEW_RESPONSE_2_1.md
 ```
+
+已部署页面：`https://renleme.netlify.app/privacy.html`、`https://renleme.netlify.app/support.html`。旧 PRD 和灵动岛方案已删除，当前规则以 `PROJECT_OVERVIEW.md` 和源码为准。
 
 ## 运行和验证
 
@@ -290,8 +301,8 @@ plutil -lint RenLeMe.xcodeproj/project.pbxproj
 最优先：
 
 - 做一次真机完整回归，尤其是拍照权限、相册权限、通知权限、键盘收起、滚动区域。
-- 补最小单元测试，优先覆盖 `StatsCalculator`。
-- 部署隐私政策和支持页面 URL。
+- 跑 `Tests/README.md` 中的目标统计和小忍动作测试；它们不代替真机回归。
+- 用最新工作区重新 Archive，完成 TestFlight 回归和 2.1 审核补充。工程当前版本为 1.0、Build 3；上传前确认 Build 大于后台已有版本。
 
 暂时不要：
 

@@ -47,7 +47,8 @@ struct GoalsView: View {
                         }
                     }
                 }
-                .padding(18)
+                .padding(.horizontal, 18)
+                .padding(.top, 10)
                 .padding(.bottom, 28)
             }
             .appScrollDefaults()
@@ -59,6 +60,7 @@ struct GoalsView: View {
             }
         }
         .navigationTitle("目标")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -247,10 +249,11 @@ private struct GoalDetailCard: View {
         .buttonStyle(PlainButtonStyle())
         .onAppear {
             guard isCompleted, !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+            withAnimation(.easeOut(duration: 0.3)) {
                 pulse = true
             }
         }
+        .onDisappear { pulse = false }
     }
 
     private var textColor: Color {
@@ -480,6 +483,8 @@ private struct AddGoalView: View {
         goalForm(titleText: "New goal", mascot: MascotMomentView(moment: .idle, size: 74))
             .navigationTitle("新目标")
             .navigationBarTitleDisplayMode(.inline)
+            .appKeyboardDismissal()
+            .onSubmit { UIApplication.shared.dismissKeyboard() }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
@@ -662,6 +667,8 @@ struct EditGoalView: View {
         }
         .navigationTitle("编辑目标")
         .navigationBarTitleDisplayMode(.inline)
+        .appKeyboardDismissal()
+        .onSubmit { UIApplication.shared.dismissKeyboard() }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("取消") { dismiss() }

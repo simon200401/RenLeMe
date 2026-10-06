@@ -1,6 +1,6 @@
 # 「忍了么」项目框架说明
 
-更新时间：2026-05-14
+更新时间：2026-10-06
 
 ## 1. 一句话定位
 
@@ -35,9 +35,9 @@ App 使用 4 个底部 Tab。
 当前模块：
 
 - Today 顶部卡片与周点阵。
-- 我的忍耐资产：省下的钱、守住的热量、拿回的时间。
+- 我的忍耐资产：省下的钱、守住的热量、拿回的时间，可按本周、本月、全部筛选。
 - 目标去向：用户自建目标与进度卡，首次安装为空状态。
-- 最近记录：显示具体道具、状态、时间。
+- 最近记录：显示具体道具、状态、时间，长按可删除。
 - 右下角快速入口：忍一下。
 
 首页设计原则：
@@ -52,16 +52,17 @@ App 使用 4 个底部 Tab。
 
 1. 选择欲望类型。
 2. 选择一个具体道具。
-3. 填写价值。
+3. 补充信息（可收起）。
 4. 做一个决定。
 
 关键行为：
 
 - 第二部分道具选择默认收缩。
-- 自选道具固定在第一位，展开后才显示内置模板。
+- 自选道具单独展示，展开后才显示内置模板。
 - 已选道具再次点击可以取消。
 - 食物模板有默认 kcal，用户不填时使用默认值。
-- 时间类、金钱类默认要求用户输入数值。
+- 忍住了、我还是做了要求填写数值；先放进冷静箱允许数值待补充，之后决定时再填写。
+- “投向目标”位于道具卡片的冷静箱入口之前，始终可见。同类只有一个目标时默认关联，有多个时由用户选择，可手动暂不关联。
 - 自选道具支持相册/拍照上传图片，模拟器不支持真机拍照时按钮会置灰。
 - 输入键盘可通过“完成”、下滑或点击空白收起。
 
@@ -81,7 +82,7 @@ App 使用 4 个底部 Tab。
 
 目标计算规则：
 
-- 优先统计关联了该目标 `goalId` 的 `resisted` 记录。
+- 只统计关联了该目标 `goalId`、有数值的 `resisted` 记录，一笔记录只计入一个目标。
 - 未关联记录不自动计入具体目标。
 - 目标值不改变记录本身，只用于进度展示。
 
@@ -118,6 +119,7 @@ App 使用 4 个底部 Tab。
 - `typeRaw`: money / food / time
 - `title`
 - `value`
+- `hasEstimatedValue`：数值是否已填写，待补充记录不计入资产。
 - `unitRaw`: cny / kcal / minute
 - `statusRaw`: resisted / pending / gaveIn
 - `reason`
@@ -154,6 +156,7 @@ App 使用 4 个底部 Tab。
 - `targetValue`
 - `deadline`
 - `icon`
+- `customImagePath`
 - `createdAt`
 
 ### FoodNutritionItem
@@ -237,6 +240,7 @@ UI-only 配置层，但记录会保存 `propTemplateId` 和 `propIconKeyRaw`，�
 - `MascotMood`
 - `MascotMoment`
 - `DynamicMascotExpression`
+- `MascotReaction` / `MascotMotionSample`：短动作及姿态参数，定义在 `MascotMotion.swift`。
 
 主要场景：
 
@@ -254,11 +258,12 @@ UI-only 配置层，但记录会保存 `propTemplateId` 和 `propIconKeyRaw`，�
 交互方式：
 
 - 首页三张资产卡点击后有轻微抖动/触感反馈，并触发小忍动态反应。
+- 首页小忍可轻点触发害羞、歪头、眨眼；欲望类型小忍分别抱钱包、抬奶茶、举时钟。
 - 记录页做决定后使用小忍反馈弹窗。
 - 冷静箱处理后给对应反馈。
 - 目标卡根据进度展示不同小忍状态。
 - 新手引导中的小忍是动态绘制，不是静态贴图。
-- Respect Reduce Motion：减少明显弹跳动画。
+- 动作短暂播放后回到安静状态；页面离开、进入后台、输入或弹窗遮挡时暂停。Reduce Motion 下不播放弹跳。
 
 ## 8. 视觉系统
 
@@ -329,7 +334,7 @@ UI-only 配置层，但记录会保存 `propTemplateId` 和 `propIconKeyRaw`，�
 
 当前支持：
 
-- 全量资产统计。
+- 本周、本月、全量资产统计，按决定时间（旧记录回退到创建时间）归属期间。
 - 目标当前值统计。
 - 某类型总资产。
 - 今日忍住次数。
@@ -338,7 +343,6 @@ UI-only 配置层，但记录会保存 `propTemplateId` 和 `propIconKeyRaw`，�
 - 近 7 天每日忍住次数。
 - 当前连续天数。
 - 本周最强类型。
-- 最常见触发原因。
 
 ## 12. 当前完成度
 
@@ -365,23 +369,23 @@ UI-only 配置层，但记录会保存 `propTemplateId` 和 `propIconKeyRaw`，�
 
 仍需补强：
 
-- 单元测试和 UI 测试。
+- 真机及 UI 自动测试；已有目标统计与小忍动作的独立自动测试，见 `Tests/README.md`。
 - 真机多尺寸完整回归。
 - 更细的趋势统计图表。
 - 冷静箱提醒设置页。
 - 目标 deadline 的完整 UI。
-- 隐私政策 URL、支持 URL 和 App Store 上架材料。
+- 最新构建的 TestFlight 回归、App Store 上架材料与 2.1 审核补充资料。
 - 用户自建食物库编辑入口。
-- 小忍冷静箱 Live Activity / 灵动岛展示暂不进入 v1，扩展源码保留但未接入主 App。
+- 灵动岛扩展及共享源码已移除；冷静箱通知与状态处理保留在 `CooldownCoordinator.swift`。
 
-已新增但仍需外部部署：
+发布材料：
 
 - `RELEASE_READINESS.md`
 - `PRIVACY_POLICY_DRAFT.md`
 - `APP_STORE_LISTING_DRAFT.md`
-- `DYNAMIC_ISLAND_DESIGN.md`
+- `APP_REVIEW_RESPONSE_2_1.md`
 
-隐私政策草稿需要在提交 App Store 前部署为公开 URL。
+隐私政策与支持页源码在 `release-site/`，已部署地址分别为 `https://renleme.netlify.app/privacy.html` 和 `https://renleme.netlify.app/support.html`。
 
 ## 13. 建议实现路径
 
@@ -397,7 +401,7 @@ UI-only 配置层，但记录会保存 `propTemplateId` 和 `propIconKeyRaw`，�
 
 - P0：修复任何编译/启动/主流程阻断。
 - P1：真机体验、滚动、键盘、触控、图片权限。
-- P2：隐私 URL、支持 URL、App Store 截图和上架材料。
+- P2：App Store 截图和审核补充材料。
 - P3：统计增强、冷静箱设置、用户自建食物库。
 - P4：小忍灵动岛、云同步、账号、AI 教练等长期能力。
 

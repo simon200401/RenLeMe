@@ -198,7 +198,9 @@ struct WelcomeOnboardingView: View {
                     color: selectedStep.mascotColor,
                     expression: selectedStep.expression,
                     size: 142,
-                    reduceMotion: reduceMotion
+                    reduceMotion: reduceMotion,
+                    reaction: selectedStep == .welcome ? .greeting : (selectedStep == .home ? .celebrate : .acknowledge),
+                    allowsIdleMotion: true
                 )
                 .id(selectedStep)
                 .transition(.scale(scale: 0.86).combined(with: .opacity))
@@ -329,7 +331,7 @@ struct WelcomeOnboardingView: View {
     }
 }
 
-enum DynamicMascotExpression {
+enum DynamicMascotExpression: Equatable {
     case hello
     case curious
     case thinking
@@ -365,140 +367,158 @@ enum DynamicMascotExpression {
 }
 
 struct AnimatedXiaoRenView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.mascotMotionEnabled) private var motionEnabled
     let color: Color
     let expression: DynamicMascotExpression
     var size: CGFloat = 150
     var reduceMotion = false
+    var reaction: MascotReaction?
+    var reactionToken = 0
+    var allowsIdleMotion = false
+    var isPaused = false
+    var heldType: ResistType?
+    @State private var isVisible = false
+    @State private var isPlaying = false
+    @State private var motionStartedAt: Date?
+
+    private var isActive: Bool {
+        isVisible && motionEnabled && scenePhase == .active && !reduceMotion && !isPaused
+    }
+
+    private var playbackKey: MascotPlaybackKey {
+        MascotPlaybackKey(reaction: reaction, token: reactionToken, isActive: isActive)
+    }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30.0)) { context in
-            let time = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
-            let phase = CGFloat(time.remainder(dividingBy: 10))
-            let bounce = sin(phase * bodyTempo) * bodyBounce
-            let blink = reduceMotion ? 1 : blinkProgress(phase)
-            let look = lookOffset(phase)
-            let tilt = reduceMotion ? 0 : sin(phase * tiltTempo) * tiltAmount
+        TimelineView(.animation(
+            minimumInterval: isPlaying ? 1.0 / 30.0 : 0.1,
+            paused: !isActive || (!isPlaying && !allowsIdleMotion)
+        )) { context in
+            let elapsed = motionStartedAt.map { context.date.timeIntervalSince($0) } ?? 0
+            let pose = isActive && isPlaying ? reaction?.sample(at: elapsed) ?? .rest : .rest
+            let blink = isActive && allowsIdleMotion && !isPlaying
+                ? CGFloat(MascotMotionSample.blinkOpenness(at: context.date.timeIntervalSinceReferenceDate)) : 1
 
             ZStack {
-                DynamicMascotBody(wobble: reduceMotion ? 0 : bounce, expression: expression)
+                hands(pose: pose)
+
+                DynamicMascotBody(wobble: CGFloat((1 - pose.scaleY) * 0.2), expression: expression)
                     .fill(color)
                     .overlay {
-                        DynamicMascotBody(wobble: reduceMotion ? 0 : bounce, expression: expression)
+                        DynamicMascotBody(wobble: CGFloat((1 - pose.scaleY) * 0.2), expression: expression)
                             .stroke(Color.white, style: StrokeStyle(lineWidth: size * 0.07, lineJoin: .round))
                     }
                     .shadow(color: .punchBlack.opacity(0.18), radius: 0, x: 0, y: size * 0.05)
 
-                eyes(blink: blink, look: look)
-                brows(phase: phase)
-                mouth(phase: phase)
-                accessory(phase: phase)
+                eyes(blink: blink, pose: pose)
+                brows(pose: pose)
+                mouth(pose: pose)
+                accessory(pose: pose)
+                if let heldType {
+                    TypeMascotPoseAccessory(
+                        type: heldType, lift: CGFloat(pose.propLift),
+                        squeeze: CGFloat(pose.propSqueeze), tilt: pose.propTilt
+                    )
+                    .frame(width: size, height: size * 0.96)
+                }
+                if pose.blush > 0 && expression != .observe {
+                    ForEach([-1.0, 1.0], id: \.self) { side in
+                        Circle()
+                            .fill(Color.punchPink.opacity(pose.blush * 0.55))
+                            .frame(width: size * 0.09)
+                            .offset(x: size * 0.34 * side, y: size * 0.09)
+                    }
+                }
             }
             .frame(width: size, height: size * 0.96)
-            .scaleEffect(y: 1 + (reduceMotion ? 0 : bounce * 0.5), anchor: .bottom)
-            .rotationEffect(.degrees(tilt))
+            .scaleEffect(x: pose.scaleX, y: pose.scaleY, anchor: .bottom)
+            .rotationEffect(.degrees(pose.tilt))
+            .offset(y: size * pose.vertical)
         }
         .frame(width: size, height: size * 0.96)
-        .accessibilityLabel("动态小忍")
-    }
-
-    private var bodyTempo: CGFloat {
-        switch expression {
-        case .celebrate, .sparkle:
-            3.4
-        case .cooling, .relieved:
-            1.35
-        case .observe:
-            1.7
-        default:
-            2.1
+        .accessibilityHidden(true)
+        .onAppear { isVisible = true }
+        .onDisappear {
+            isVisible = false
+            isPlaying = false
+            motionStartedAt = nil
+        }
+        .task(id: playbackKey) {
+            isPlaying = false
+            motionStartedAt = nil
+            guard isActive, let reaction else { return }
+            motionStartedAt = Date()
+            isPlaying = true
+            do {
+                try await Task.sleep(for: .seconds(reaction.duration))
+            } catch {
+                return
+            }
+            isPlaying = false
+            motionStartedAt = nil
         }
     }
 
-    private var bodyBounce: CGFloat {
-        switch expression {
-        case .celebrate:
-            0.055
-        case .sparkle:
-            0.046
-        case .cooling, .relieved:
-            0.024
-        default:
-            0.035
+    private func eyes(blink: CGFloat, pose: MascotMotionSample) -> some View {
+        let restingClosure: Double = expression == .relieved ? 1 : 0
+        return ZStack {
+            eye(x: -size * 0.17, openness: min(blink, 1 - max(restingClosure, pose.leftClosure)), look: pose.gaze, lookY: pose.gazeY)
+            eye(x: size * 0.17, openness: min(blink, 1 - max(restingClosure, pose.rightClosure)), look: pose.gaze, lookY: pose.gazeY)
         }
     }
 
-    private var tiltTempo: CGFloat {
-        switch expression {
-        case .curious, .sparkle:
-            1.7
-        case .celebrate:
-            2.8
-        case .observe:
-            1.1
-        default:
-            0
-        }
-    }
+    private func eye(x: CGFloat, openness: CGFloat, look: Double, lookY: Double) -> some View {
+        Group {
+            if openness < 0.2 {
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: size * 0.025))
+                    path.addQuadCurve(
+                        to: CGPoint(x: size * 0.17, y: size * 0.025),
+                        control: CGPoint(x: size * 0.085, y: size * 0.09)
+                    )
+                }
+                .stroke(Color.punchBlack, style: StrokeStyle(lineWidth: size * 0.032, lineCap: .round))
+                .frame(width: size * 0.17, height: size * 0.07)
+            } else {
+                ZStack {
+                    Capsule()
+                        .fill(Color.white)
+                        .frame(width: size * 0.17, height: size * 0.25 * openness)
 
-    private var tiltAmount: CGFloat {
-        switch expression {
-        case .curious, .sparkle:
-            3
-        case .celebrate:
-            4.5
-        case .observe:
-            1.8
-        default:
-            0
+                    Circle()
+                        .fill(Color.punchBlack)
+                        .frame(width: size * 0.055)
+                        .offset(x: CGFloat(look) * size * 0.034, y: size * 0.03 * (openness + CGFloat(lookY)))
+                }
+            }
         }
-    }
-
-    private func eyes(blink: CGFloat, look: CGFloat) -> some View {
-        ZStack {
-            eye(x: -size * 0.17, blink: blink, look: look)
-            eye(x: size * 0.17, blink: blink, look: look)
-        }
-    }
-
-    private func eye(x: CGFloat, blink: CGFloat, look: CGFloat) -> some View {
-        ZStack {
-            Capsule()
-                .fill(Color.white)
-                .frame(width: size * 0.17, height: max(size * 0.035, size * 0.25 * blink))
-
-            Circle()
-                .fill(Color.punchBlack)
-                .frame(width: size * 0.055)
-                .offset(x: look * size * 0.034, y: size * 0.03 * blink)
-                .opacity(blink < 0.25 ? 0 : 1)
-        }
+        .frame(width: size * 0.17, height: size * 0.25)
         .offset(x: x, y: -size * 0.12)
     }
 
-    private func brows(phase: CGFloat) -> some View {
+    private func brows(pose: MascotMotionSample) -> some View {
         ZStack {
-            brow(x: -size * 0.18, rotation: leftBrowRotation + sin(phase * 1.7) * 2)
-            brow(x: size * 0.18, rotation: rightBrowRotation - sin(phase * 1.4) * 2)
+            brow(x: -size * 0.18, rotation: leftBrowRotation - CGFloat(pose.smile * 3))
+            brow(x: size * 0.18, rotation: rightBrowRotation + CGFloat(pose.smile * 3))
         }
     }
 
     private var leftBrowRotation: CGFloat {
         switch expression {
-        case .hello, .relieved: -8
+        case .hello, .relieved, .cooling, .observe: -8
         case .curious, .sparkle: -16
-        case .thinking, .cooling: 12
+        case .thinking: 12
         case .proud, .celebrate: -6
-        case .observe: 8
         }
     }
 
     private var rightBrowRotation: CGFloat {
         switch expression {
-        case .hello, .relieved: 8
+        case .hello, .relieved, .cooling, .observe: 8
         case .curious, .sparkle: 16
-        case .thinking, .cooling: -12
+        case .thinking: -12
         case .proud, .celebrate: 6
-        case .observe: -8
         }
     }
 
@@ -510,20 +530,25 @@ struct AnimatedXiaoRenView: View {
             .offset(x: x, y: -size * 0.285)
     }
 
-    private func mouth(phase: CGFloat) -> some View {
+    private func mouth(pose: MascotMotionSample) -> some View {
         Path { path in
             let centerX = size * 0.5
             let centerY = size * 0.52
+            if pose.openMouth > 0.15 {
+                path.addEllipse(in: CGRect(x: centerX - size * 0.045, y: centerY,
+                                          width: size * 0.09, height: size * 0.10 * pose.openMouth))
+                return
+            }
             switch expression {
-            case .hello, .relieved:
+            case .hello, .relieved, .cooling, .observe:
                 path.move(to: CGPoint(x: centerX - size * 0.16, y: centerY))
                 path.addQuadCurve(
                     to: CGPoint(x: centerX + size * 0.16, y: centerY),
-                    control: CGPoint(x: centerX, y: centerY + size * (0.18 + sin(phase * 2.2) * 0.018))
+                    control: CGPoint(x: centerX, y: centerY + size * (0.13 + pose.smile * 0.035))
                 )
             case .curious, .sparkle:
                 path.addEllipse(in: CGRect(x: centerX - size * 0.055, y: centerY - size * 0.02, width: size * 0.11, height: size * 0.085))
-            case .thinking, .cooling:
+            case .thinking:
                 path.move(to: CGPoint(x: centerX - size * 0.13, y: centerY + size * 0.04))
                 path.addQuadCurve(
                     to: CGPoint(x: centerX + size * 0.13, y: centerY + size * 0.04),
@@ -535,9 +560,6 @@ struct AnimatedXiaoRenView: View {
                     to: CGPoint(x: centerX + size * 0.18, y: centerY - size * 0.01),
                     control: CGPoint(x: centerX, y: centerY + size * 0.21)
                 )
-            case .observe:
-                path.move(to: CGPoint(x: centerX - size * 0.13, y: centerY + size * 0.03))
-                path.addLine(to: CGPoint(x: centerX + size * 0.13, y: centerY + size * 0.03))
             }
         }
         .stroke(Color.punchBlack, style: StrokeStyle(lineWidth: size * 0.052, lineCap: .round, lineJoin: .round))
@@ -545,14 +567,10 @@ struct AnimatedXiaoRenView: View {
     }
 
     @ViewBuilder
-    private func accessory(phase: CGFloat) -> some View {
+    private func accessory(pose: MascotMotionSample) -> some View {
         switch expression {
         case .hello:
-            Capsule()
-                .fill(Color.white)
-                .frame(width: size * 0.07, height: size * 0.24)
-                .rotationEffect(.degrees(-28 + sin(phase * 4) * 12))
-                .offset(x: size * 0.43, y: -size * 0.08)
+            EmptyView()
         case .curious:
             Circle()
                 .fill(Color.punchPink.opacity(0.45))
@@ -562,7 +580,7 @@ struct AnimatedXiaoRenView: View {
                 .fill(Color.punchPink.opacity(0.45))
                 .frame(width: size * 0.075)
                 .offset(x: size * 0.36, y: size * 0.11)
-        case .thinking, .cooling:
+        case .thinking:
             Path { path in
                 path.move(to: CGPoint(x: size * 0.76, y: size * 0.23))
                 path.addQuadCurve(
@@ -572,17 +590,32 @@ struct AnimatedXiaoRenView: View {
             }
             .stroke(Color.punchBlue, style: StrokeStyle(lineWidth: size * 0.05, lineCap: .round))
             .frame(width: size, height: size)
+        case .cooling:
+            Image(systemName: "clock.fill")
+                .font(.system(size: size * 0.24, weight: .bold))
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(Color.punchBlack, Color.softCream)
+                .rotationEffect(.degrees(-8 + pose.gaze * 8))
+                .offset(x: size * 0.29, y: size * 0.25)
+                .overlay {
+                    Capsule()
+                        .fill(color)
+                        .overlay { Capsule().stroke(Color.white, lineWidth: size * 0.025) }
+                        .frame(width: size * 0.16, height: size * 0.065)
+                        .rotationEffect(.degrees(-20))
+                        .offset(x: size * 0.23, y: size * 0.28)
+                }
         case .proud:
             Image(systemName: "sparkle")
                 .font(.system(size: size * 0.18, weight: .black))
                 .foregroundStyle(Color.punchYellow)
-                .rotationEffect(.degrees(sin(phase * 2.4) * 12))
+                .rotationEffect(.degrees(pose.tilt))
                 .offset(x: size * 0.39, y: -size * 0.31)
         case .sparkle:
             Image(systemName: "questionmark")
                 .font(.system(size: size * 0.17, weight: .black))
                 .foregroundStyle(Color.punchYellow)
-                .rotationEffect(.degrees(sin(phase * 2.6) * 10))
+                .rotationEffect(.degrees(pose.tilt))
                 .offset(x: size * 0.38, y: -size * 0.30)
             Circle()
                 .fill(Color.punchBlue.opacity(0.75))
@@ -592,8 +625,8 @@ struct AnimatedXiaoRenView: View {
             Image(systemName: "sparkles")
                 .font(.system(size: size * 0.23, weight: .black))
                 .foregroundStyle(Color.punchYellow)
-                .scaleEffect(1 + sin(phase * 3) * 0.12)
-                .rotationEffect(.degrees(sin(phase * 3.2) * 14))
+                .scaleEffect(1 + pose.arms * 0.12)
+                .rotationEffect(.degrees(pose.tilt))
                 .offset(x: size * 0.40, y: -size * 0.32)
             Image(systemName: "sparkle")
                 .font(.system(size: size * 0.15, weight: .black))
@@ -601,53 +634,49 @@ struct AnimatedXiaoRenView: View {
                 .offset(x: -size * 0.38, y: -size * 0.26)
         case .observe:
             Circle()
-                .fill(Color.punchPink.opacity(0.38))
+                .fill(Color.punchPink.opacity(0.38 + pose.blush * 0.22))
                 .frame(width: size * 0.08)
                 .offset(x: -size * 0.34, y: size * 0.10)
             Circle()
-                .fill(Color.punchPink.opacity(0.38))
+                .fill(Color.punchPink.opacity(0.38 + pose.blush * 0.22))
                 .frame(width: size * 0.08)
                 .offset(x: size * 0.34, y: size * 0.10)
         case .relieved:
-            Path { path in
-                path.move(to: CGPoint(x: size * 0.25, y: size * 0.56))
-                path.addQuadCurve(
-                    to: CGPoint(x: size * 0.43, y: size * 0.56),
-                    control: CGPoint(x: size * 0.34, y: size * 0.64)
-                )
-                path.move(to: CGPoint(x: size * 0.57, y: size * 0.56))
-                path.addQuadCurve(
-                    to: CGPoint(x: size * 0.75, y: size * 0.56),
-                    control: CGPoint(x: size * 0.66, y: size * 0.64)
-                )
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private func hands(pose: MascotMotionSample) -> some View {
+        if pose.wave > 0 || pose.arms > 0 {
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                Capsule()
+                    .fill(color)
+                    .overlay { Capsule().stroke(Color.white, lineWidth: size * 0.04) }
+                    .frame(width: size * 0.12, height: size * 0.25)
+                    .rotationEffect(.degrees(side * (45 + pose.arms * 30 + (side > 0 ? pose.wave * 25 : 0))))
+                    .offset(x: size * 0.37 * side, y: -size * (0.02 + pose.arms * 0.14))
+                    .opacity(pose.arms > 0 ? pose.arms : (side > 0 ? pose.wave : 0))
             }
-            .stroke(Color.punchBlack, style: StrokeStyle(lineWidth: size * 0.035, lineCap: .round))
-            .frame(width: size, height: size)
         }
     }
 
-    private func blinkProgress(_ phase: CGFloat) -> CGFloat {
-        let cycle = phase.truncatingRemainder(dividingBy: 3.2)
-        if cycle < 0.08 {
-            return max(0.12, cycle / 0.08)
-        }
-        if cycle < 0.16 {
-            return max(0.12, (0.16 - cycle) / 0.08)
-        }
-        return 1
-    }
+}
 
-    private func lookOffset(_ phase: CGFloat) -> CGFloat {
-        switch expression {
-        case .hello, .proud, .celebrate, .relieved:
-            sin(phase * 1.1)
-        case .curious, .sparkle:
-            sin(phase * 1.8) * 1.4
-        case .thinking, .cooling:
-            -0.8 + sin(phase * 0.9) * 0.35
-        case .observe:
-            sin(phase * 0.7) * 0.45
-        }
+private struct MascotPlaybackKey: Equatable {
+    let reaction: MascotReaction?
+    let token: Int
+    let isActive: Bool
+}
+
+private struct MascotMotionEnabledKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    var mascotMotionEnabled: Bool {
+        get { self[MascotMotionEnabledKey.self] }
+        set { self[MascotMotionEnabledKey.self] = newValue }
     }
 }
 

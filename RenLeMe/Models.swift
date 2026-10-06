@@ -1,6 +1,5 @@
 import Foundation
 import SwiftData
-import SwiftUI
 
 enum ResistType: String, CaseIterable, Identifiable, Codable {
     case money
@@ -54,14 +53,6 @@ enum ResistType: String, CaseIterable, Identifiable, Codable {
         case .money: "yensign.circle.fill"
         case .food: "fork.knife.circle.fill"
         case .time: "clock.circle.fill"
-        }
-    }
-
-    var tint: Color {
-        switch self {
-        case .money: Color(red: 0.20, green: 0.62, blue: 0.39)
-        case .food: Color(red: 0.91, green: 0.36, blue: 0.30)
-        case .time: Color(red: 0.39, green: 0.42, blue: 0.86)
         }
     }
 

@@ -30,6 +30,7 @@ struct RecordFlowView: View {
     @State private var selectedReason = "好看"
     @State private var note = ""
     @State private var selectedGoalId: UUID?
+    @State private var hasChosenGoal = false
     @State private var selectedTemplate: PropTemplate?
     @State private var isCustomPropSelected = false
     @State private var isPropPickerExpanded = false
@@ -40,7 +41,13 @@ struct RecordFlowView: View {
     @State private var servingGramsText = ""
     @State private var completionMoment: MascotMoment?
     @State private var introExpression: DynamicMascotExpression = .thinking
+    @State private var introReaction: MascotReaction?
+    @State private var introReactionToken = 0
     @State private var isShowingFoodPicker = false
+    @FocusState private var isTitleFocused: Bool
+    @FocusState private var isValueFocused: Bool
+    @FocusState private var isNoteFocused: Bool
+    @FocusState private var isServingFocused: Bool
 
     private var filteredGoals: [Goal] {
         goals.filter { $0.type == selectedType }
@@ -73,6 +80,10 @@ struct RecordFlowView: View {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var isInputFocused: Bool {
+        isTitleFocused || isValueFocused || isNoteFocused || isServingFocused
+    }
+
     private var hasEstimatedValue: Bool {
         effectiveValue > 0
     }
@@ -84,6 +95,7 @@ struct RecordFlowView: View {
     var body: some View {
         ZStack {
             Color.appBackground.ignoresSafeArea()
+                .onTapGesture(perform: dismissInput)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -96,6 +108,7 @@ struct RecordFlowView: View {
                 .padding(18)
             }
             .appScrollDefaults()
+            .scrollDismissesKeyboard(.immediately)
 
             if let completionMoment {
                 MascotFeedbackPopup(moment: completionMoment) {
@@ -109,14 +122,40 @@ struct RecordFlowView: View {
             if isModal {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("关闭") {
+                        dismissInput()
                         dismiss()
                     }
                 }
             }
         }
+        .appKeyboardDismissal(onDismiss: dismissInput)
+        .onAppear(perform: synchronizeGoalSelection)
+        .onChange(of: filteredGoals.map(\.id)) { _, _ in
+            synchronizeGoalSelection()
+        }
+        .onChange(of: isInputFocused) { _, focused in
+            if focused { introReaction = nil }
+        }
+        .task(id: introReactionToken) {
+            guard let introReaction else { return }
+            do {
+                try await Task.sleep(for: .seconds(introReaction.duration))
+            } catch {
+                return
+            }
+            self.introReaction = nil
+            introExpression = .thinking
+        }
+        .onDisappear(perform: dismissInput)
+        .onChange(of: isDetailsExpanded) { _, isExpanded in
+            if !isExpanded { dismissInput() }
+        }
         .onChange(of: selectedType) { _, newType in
+            dismissInput()
             selectedReason = newType.reasons.first ?? ""
             selectedGoalId = nil
+            hasChosenGoal = false
+            synchronizeGoalSelection()
             selectedTemplate = nil
             isCustomPropSelected = false
             isPropPickerExpanded = false
@@ -128,7 +167,7 @@ struct RecordFlowView: View {
             valueText = ""
             isDetailsExpanded = false
             completionMoment = nil
-            pulseIntro(.thinking)
+            pulseIntro(.hello, reaction: newType.selectionReaction)
         }
         .sheet(isPresented: $isShowingFoodPicker) {
             NavigationStack {
@@ -167,7 +206,12 @@ struct RecordFlowView: View {
                     color: selectedType.v2MascotColor,
                     expression: introExpression,
                     size: 86,
-                    reduceMotion: reduceMotion
+                    reduceMotion: reduceMotion,
+                    reaction: introReaction?.isPropInteraction == true ? nil : introReaction,
+                    reactionToken: introReactionToken,
+                    allowsIdleMotion: true,
+                    isPaused: isInputFocused || completionMoment != nil || isShowingFoodPicker || customImageSource != nil || introReaction?.isPropInteraction == true,
+                    heldType: selectedType
                 )
             }
         }
@@ -183,11 +227,21 @@ struct RecordFlowView: View {
                 HStack(spacing: 10) {
                     ForEach(ResistType.allCases) { type in
                         Button {
-                            selectedType = type
-                            pulseIntro(.sparkle)
+                            if selectedType == type {
+                                guard introReaction?.isPropInteraction != true else { return }
+                                dismissInput()
+                                pulseIntro(.hello, reaction: type.selectionReaction)
+                            } else {
+                                selectedType = type
+                            }
                         } label: {
                             VStack(spacing: 8) {
-                                TypeMascotBadge(type: type, size: 56)
+                                TypeMascotBadge(
+                                    type: type, size: 56,
+                                    reaction: selectedType == type && introReaction?.isPropInteraction == true ? introReaction : nil,
+                                    reactionToken: introReactionToken,
+                                    isPaused: isInputFocused || completionMoment != nil || isShowingFoodPicker || customImageSource != nil
+                                )
                                 Text(type.title)
                                     .font(.rounded(15, weight: .black))
                                     .foregroundStyle(Color.punchBlack)
@@ -270,6 +324,8 @@ struct RecordFlowView: View {
                     }
                 }
 
+                goalPicker
+
                 Button {
                     save(status: .pending)
                 } label: {
@@ -314,7 +370,7 @@ struct RecordFlowView: View {
                     .font(.rounded(14, weight: .black))
                     .foregroundStyle(Color.fieldLabelInk)
 
-                AppTextField(placeholder: customTitlePlaceholder, text: $title)
+                AppTextField(placeholder: customTitlePlaceholder, text: $title, focus: $isTitleFocused)
             }
 
             HStack(spacing: 10) {
@@ -361,6 +417,7 @@ struct RecordFlowView: View {
         PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 16) {
             VStack(alignment: .leading, spacing: 16) {
                 Button {
+                    dismissInput()
                     if reduceMotion {
                         isDetailsExpanded.toggle()
                     } else {
@@ -408,15 +465,6 @@ struct RecordFlowView: View {
                         .pickerStyle(.segmented)
                     }
 
-                    if !filteredGoals.isEmpty {
-                        Picker("投向目标", selection: $selectedGoalId) {
-                            Text("暂不关联").tag(UUID?.none)
-                            ForEach(filteredGoals) { goal in
-                                Text(goal.title).tag(Optional(goal.id))
-                            }
-                        }
-                    }
-
                     VStack(alignment: .leading, spacing: 8) {
                         Text("给自己的备注")
                             .font(.rounded(15, weight: .black))
@@ -427,7 +475,8 @@ struct RecordFlowView: View {
                             text: $note,
                             axis: .vertical,
                             lineLimit: 3,
-                            reservesSpace: true
+                            reservesSpace: true,
+                            focus: $isNoteFocused
                         )
                     }
                 }
@@ -442,7 +491,7 @@ struct RecordFlowView: View {
                     .font(.rounded(15, weight: .black))
                     .foregroundStyle(Color.fieldLabelInk)
 
-                AppTextField(placeholder: valuePlaceholder, text: $valueText, keyboardType: .decimalPad)
+                AppTextField(placeholder: valuePlaceholder, text: $valueText, keyboardType: .decimalPad, focus: $isValueFocused)
 
                 if let selectedTemplate {
                     ValueDefaultChip(text: selectedTemplate.defaultValueText, fill: selectedTemplate.displayColor.opacity(0.34))
@@ -458,7 +507,7 @@ struct RecordFlowView: View {
                     .font(.rounded(15, weight: .black))
                     .foregroundStyle(Color.fieldLabelInk)
 
-                AppTextField(placeholder: valuePlaceholder, text: $valueText, keyboardType: .decimalPad)
+                AppTextField(placeholder: valuePlaceholder, text: $valueText, keyboardType: .decimalPad, focus: $isValueFocused)
 
                 if let selectedTemplate {
                     ValueDefaultChip(text: selectedTemplate.defaultValueText, fill: selectedTemplate.displayColor.opacity(0.34))
@@ -471,6 +520,7 @@ struct RecordFlowView: View {
                     .foregroundStyle(Color.fieldLabelInk)
 
                 Button {
+                    dismissInput()
                     isShowingFoodPicker = true
                 } label: {
                     HStack(spacing: 12) {
@@ -506,7 +556,7 @@ struct RecordFlowView: View {
                         .font(.rounded(15, weight: .black))
                         .foregroundStyle(Color.fieldLabelInk)
 
-                    AppTextField(placeholder: "例如 150", text: $servingGramsText, keyboardType: .decimalPad)
+                    AppTextField(placeholder: "例如 150", text: $servingGramsText, keyboardType: .decimalPad, focus: $isServingFocused)
                         .onChange(of: servingGramsText) { _, _ in
                             valueText = calculatedFoodCalories > 0 ? calculatedFoodCalories.cleanString : ""
                         }
@@ -571,6 +621,32 @@ struct RecordFlowView: View {
         }
     }
 
+    @ViewBuilder
+    private var goalPicker: some View {
+        if !filteredGoals.isEmpty {
+            HStack {
+                Text("投向目标")
+                    .font(.rounded(15, weight: .black))
+                    .foregroundStyle(Color.fieldLabelInk)
+                    .fixedSize()
+                Spacer(minLength: 8)
+                Picker("投向目标", selection: Binding(
+                    get: { selectedGoalId },
+                    set: { selectedGoalId = $0; hasChosenGoal = true; dismissInput() }
+                )) {
+                    Text("暂不关联").tag(UUID?.none)
+                    ForEach(filteredGoals) { goal in
+                        Text(goal.title).tag(Optional(goal.id))
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(Color.punchBlack)
+                .labelsHidden()
+                .accessibilityIdentifier("recordGoalPicker")
+            }
+        }
+    }
+
     private var valuePlaceholder: String {
         switch selectedType {
         case .money: "例如 100"
@@ -613,8 +689,8 @@ struct RecordFlowView: View {
     }
 
     private func save(status: ResistStatus) {
+        dismissInput()
         guard canSave(status) else { return }
-        UIApplication.shared.dismissKeyboard()
         if status == .resisted {
             AppHaptics.success()
         } else {
@@ -639,7 +715,7 @@ struct RecordFlowView: View {
             cooldownUntil: cooldownUntil,
             enteredCooldown: status == .pending,
             note: note,
-            goalId: selectedGoalId,
+            goalId: filteredGoals.contains(where: { $0.id == selectedGoalId }) ? selectedGoalId : nil,
             foodNutritionItemId: selectedFood?.id,
             foodSourceName: selectedFood?.sourceName,
             foodSourceVersion: selectedFood?.sourceVersion,
@@ -688,10 +764,13 @@ struct RecordFlowView: View {
     }
 
     private func resetForm() {
+        dismissInput()
         title = ""
         valueText = ""
         note = ""
         selectedGoalId = nil
+        hasChosenGoal = false
+        synchronizeGoalSelection()
         selectedTemplate = nil
         isCustomPropSelected = false
         isPropPickerExpanded = false
@@ -702,7 +781,27 @@ struct RecordFlowView: View {
         servingGramsText = ""
     }
 
+    private func dismissInput() {
+        isTitleFocused = false
+        isValueFocused = false
+        isNoteFocused = false
+        isServingFocused = false
+        UIApplication.shared.dismissKeyboard()
+    }
+
+    private func synchronizeGoalSelection() {
+        if hasChosenGoal {
+            // Preserve an explicit opt-out and never reroute a deleted or incompatible goal.
+            if let selectedGoalId, !filteredGoals.contains(where: { $0.id == selectedGoalId }) {
+                self.selectedGoalId = nil
+            }
+            return
+        }
+        selectedGoalId = StatsCalculator.defaultGoalId(for: selectedType, goals: goals)
+    }
+
     private func selectTemplate(_ template: PropTemplate) {
+        dismissInput()
         if selectedTemplate?.id == template.id {
             selectedTemplate = nil
             if title == template.title {
@@ -725,6 +824,7 @@ struct RecordFlowView: View {
     }
 
     private func togglePropPicker() {
+        dismissInput()
         if reduceMotion {
             isPropPickerExpanded.toggle()
         } else {
@@ -735,6 +835,7 @@ struct RecordFlowView: View {
     }
 
     private func toggleCustomProp() {
+        dismissInput()
         if isCustomPropSelected {
             isCustomPropSelected = false
             customImage = nil
@@ -758,6 +859,7 @@ struct RecordFlowView: View {
 
     private func openCustomImageSource(_ source: CustomImageSource) {
         guard UIImagePickerController.isSourceTypeAvailable(source.sourceType) else { return }
+        dismissInput()
         isCustomPropSelected = true
         selectedTemplate = nil
         customImageSource = source
@@ -771,21 +873,10 @@ struct RecordFlowView: View {
         }
     }
 
-    private func pulseIntro(_ expression: DynamicMascotExpression) {
-        if reduceMotion {
-            introExpression = expression
-            return
-        }
-
-        withAnimation(.spring(response: 0.24, dampingFraction: 0.62)) {
-            introExpression = expression
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-            withAnimation(.easeOut(duration: 0.22)) {
-                introExpression = .thinking
-            }
-        }
+    private func pulseIntro(_ expression: DynamicMascotExpression, reaction: MascotReaction = .acknowledge) {
+        introExpression = expression
+        introReaction = reaction
+        introReactionToken += 1
     }
 
 }

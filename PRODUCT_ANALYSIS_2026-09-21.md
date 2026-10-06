@@ -2,6 +2,8 @@
 
 日期：2026-09-21。依据：当前工作区源码、PROJECT_OVERVIEW、HANDOFF、RELEASE_READINESS 以及本对话中的产品取舍。
 
+历史分析说明（2026-10-06）：本文保留当时的产品诊断和研究假设，不作为当前实现规范。目标统计、冷静箱、首启数据与键盘等已随后调整，灵动岛已取消；当前规则请读 `PROJECT_OVERVIEW.md`，验证状态请读 `QA_CHECKLIST.md` 和 `RELEASE_READINESS.md`。下文源码行号也只对应分析当天。
+
 ## 1. 结论与证据边界
 
 建议把下一阶段目标定为：让用户在冲动出现时更容易暂停，在暂停后更容易作出自己认可的选择，并相信 App 对这次选择的记录。
@@ -284,7 +286,7 @@
 | 默认目标自动创建与正式版 demo 隔离 | [RenLeMeApp.swift](/Users/simonx/Documents/RenLeMa/RenLeMe/RenLeMeApp.swift) |
 | 六步引导、可关闭 | [WelcomeOnboardingView.swift:3](/Users/simonx/Documents/RenLeMa/RenLeMe/WelcomeOnboardingView.swift:3)、[关闭入口:171](/Users/simonx/Documents/RenLeMa/RenLeMe/WelcomeOnboardingView.swift:171) |
 | 通知创建，编辑时重设等待 | [RecordFlowView.swift:767](/Users/simonx/Documents/RenLeMa/RenLeMe/RecordFlowView.swift:767)、[EditRecordView.swift:306](/Users/simonx/Documents/RenLeMa/RenLeMe/EditRecordView.swift:306) |
-| 实时活动创建/结束、无记录直达设置 | [CooldownLiveActivityManager.swift](/Users/simonx/Documents/RenLeMa/RenLeMe/CooldownLiveActivityManager.swift)、[CooldownLiveActivityWidget.swift](/Users/simonx/Documents/RenLeMa/RenLeMeLiveActivityExtension/CooldownLiveActivityWidget.swift) |
+| 实时活动创建/结束、无记录直达设置 | 历史实现已移除；当前冷静箱处理与通知代码为 [CooldownCoordinator.swift](/Users/simonx/Documents/RenLeMa/RenLeMe/CooldownCoordinator.swift) |
 | 食物默认值与睡觉模板 | [PropTemplates.swift:140](/Users/simonx/Documents/RenLeMa/RenLeMe/PropTemplates.swift:140) |
 
 **文档差异**：PROJECT_OVERVIEW 写“未关联记录不自动计入具体目标”，但当前首页与目标页存在同类型全量 fallback；交接文档把 Live Activity 列为待完成，而工作区已有实现。后续实施和评估应使用实际代码状态，不能把文档清单直接当完成证明。
