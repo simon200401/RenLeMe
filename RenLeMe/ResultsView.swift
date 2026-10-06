@@ -8,7 +8,7 @@ struct ResultsView: View {
     @Query(sort: \Goal.createdAt, order: .forward) private var goals: [Goal]
     @AppStorage("homeAssetPeriod") private var assetPeriod: AssetPeriod = .week
     @State private var editingGoal: Goal?
-    @State private var isAddingGoal = false
+    @State private var addingGoalType: ResistType?
     @State private var assetFaces: [ResistType: DynamicMascotExpression] = [:]
     @State private var completedGoalMoment: MascotMoment?
     @State private var activeAssetType: ResistType?
@@ -89,9 +89,9 @@ struct ResultsView: View {
         .alert("删除失败，请重试", isPresented: $deleteFailed) {
             Button("知道了", role: .cancel) {}
         }
-        .sheet(isPresented: $isAddingGoal) {
+        .sheet(item: $addingGoalType) { type in
             NavigationStack {
-                AddGoalView()
+                AddGoalView(initialType: type)
             }
         }
         .sheet(item: $editingGoal) { goal in
@@ -156,7 +156,7 @@ struct ResultsView: View {
 
             if goals.isEmpty {
                 GoalPlaceholderCard {
-                    isAddingGoal = true
+                    addingGoalType = .money
                 }
                 .accessibilityIdentifier("resultsAddGoalButton")
             } else {

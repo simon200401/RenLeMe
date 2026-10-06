@@ -7,7 +7,8 @@ struct HomeView: View {
     @Query(sort: \ResistRecord.createdAt, order: .reverse) private var records: [ResistRecord]
     @Query(sort: \Goal.createdAt, order: .forward) private var goals: [Goal]
 
-    @State private var isAddingGoal = false
+    /// The kind of urge a new goal is being made for, while the sheet is up.
+    @State private var addingGoalType: ResistType?
     @State private var isShowingGrowth = false
     @State private var openedPending: ResistRecord?
     @State private var heroFace: DynamicMascotExpression?
@@ -216,9 +217,9 @@ struct HomeView: View {
                 .presentationDetents([.fraction(0.7), .large])
                 .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $isAddingGoal) {
+        .sheet(item: $addingGoalType) { type in
             NavigationStack {
-                AddGoalView()
+                AddGoalView(initialType: type)
             }
         }
     }
@@ -522,13 +523,13 @@ struct HomeView: View {
 
     @ViewBuilder
     private var goalSection: some View {
-        if let nearestGoal {
-            GoalProgressCard(goal: nearestGoal, records: records, isCompact: true, onTap: onShowResults)
-        } else if goals.isEmpty {
+        if goals.isEmpty {
             GoalPlaceholderCard(isCompact: true) {
-                isAddingGoal = true
+                addingGoalType = .money
             }
             .accessibilityIdentifier("homeAddGoalButton")
+        } else if let nearestGoal {
+            GoalProgressCard(goal: nearestGoal, records: records, isCompact: true, onTap: onShowResults)
         }
     }
 

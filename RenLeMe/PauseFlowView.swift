@@ -91,12 +91,16 @@ struct PauseFlowView: View {
     @State private var decidingFace: DynamicMascotExpression = .curious
     @State private var isHandlingTap = false
     @State private var saveFailed = false
-    @AppStorage("didDeclineGoalPrompt") private var didDeclineGoalPrompt = false
     @State private var savedRecord: ResistRecord?
     @State private var shouldOfferGoal = false
     @State private var isAddingGoal = false
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isValueFocused: Bool
+
+    /// Declining the invitation to make a goal is remembered for this kind of urge only.
+    private var declinedGoalPromptKey: String {
+        "didDeclineGoalPrompt.\(type.rawValue)"
+    }
 
     private var filteredGoals: [Goal] {
         goals.filter { $0.type == type }
@@ -736,7 +740,7 @@ struct PauseFlowView: View {
 
             Button {
                 // Asked once; the home screen keeps a quiet slot for later.
-                didDeclineGoalPrompt = true
+                UserDefaults.standard.set(true, forKey: declinedGoalPromptKey)
                 dismiss()
             } label: {
                 Text("以后再说")
@@ -908,7 +912,8 @@ struct PauseFlowView: View {
         }
 
         savedRecord = record
-        shouldOfferGoal = status == .resisted && estimate != nil && filteredGoals.isEmpty && !didDeclineGoalPrompt
+        shouldOfferGoal = status == .resisted && estimate != nil && filteredGoals.isEmpty
+            && !UserDefaults.standard.bool(forKey: declinedGoalPromptKey)
 
         if status == .resisted {
             AppHaptics.success()
