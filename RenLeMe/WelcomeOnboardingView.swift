@@ -13,13 +13,13 @@ private enum WelcomeOnboardingStep: Int, CaseIterable {
         case .welcome:
             "欢迎来到忍了么"
         case .home:
-            "首页先看成果"
+            "冲动来了点忍一下"
         case .record:
-            "冲动来了先记下"
+            "小忍陪你停 15 秒"
         case .decide:
-            "给自己一个暂停"
+            "到点再决定"
         case .goals:
-            "把忍住投向目标"
+            "成果都在这里"
         case .profile:
             "复盘不审判"
         }
@@ -30,13 +30,13 @@ private enum WelcomeOnboardingStep: Int, CaseIterable {
         case .welcome:
             "不批评，不催促。"
         case .home:
-            "钱、热量、时间。"
+            "选一个类型就开始。"
         case .record:
-            "类型、道具、数值。"
+            "点点小忍，等它数完。"
         case .decide:
-            "忍住、冷静箱、观察。"
+            "忍住、再等等、还是做了。"
         case .goals:
-            "进度和去向。"
+            "钱、热量、时间和目标。"
         case .profile:
             "统计、成就、冷静箱。"
         }
@@ -85,13 +85,13 @@ private enum WelcomeOnboardingStep: Int, CaseIterable {
         case .welcome:
             "看见冲动"
         case .home:
-            "首页"
+            "今天"
         case .record:
-            "记录页"
+            "暂停"
         case .decide:
             "冷静箱"
         case .goals:
-            "目标页"
+            "成果页"
         case .profile:
             "我的页"
         }
@@ -102,13 +102,13 @@ private enum WelcomeOnboardingStep: Int, CaseIterable {
         case .welcome:
             "sparkles"
         case .home:
-            "house.fill"
+            "pause.circle.fill"
         case .record:
-            "plus.circle.fill"
+            "timer"
         case .decide:
             "archivebox.fill"
         case .goals:
-            "target"
+            "chart.bar.fill"
         case .profile:
             "person.crop.circle.fill"
         }
@@ -119,13 +119,13 @@ private enum WelcomeOnboardingStep: Int, CaseIterable {
         case .welcome:
             ["不羞辱", "有陪伴"]
         case .home:
-            ["忍耐资产", "点击反馈"]
+            ["一键开始", "待决定"]
         case .record:
-            ["类型", "道具", "数值"]
+            ["15 秒", "可互动"]
         case .decide:
-            ["忍住", "冷静箱", "观察"]
+            ["忍住", "冷静箱", "没忍住"]
         case .goals:
-            ["进度", "去向"]
+            ["资产", "目标", "记录"]
         case .profile:
             ["统计", "成就", "复盘"]
         }
@@ -341,6 +341,38 @@ enum DynamicMascotExpression: Equatable {
     case cooling
     case observe
     case relieved
+    /// Pause scene: eyeing the thing it wants, before the countdown starts.
+    case craving
+    /// Pause scene: cheeks full on the in-breath.
+    case inhale
+    /// Pause scene: blowing the breath out.
+    case exhale
+    /// Pause scene: the urge has passed.
+    case settled
+    /// Poked too many times.
+    case dizzy
+    /// Poked far too many times: turned away, face hidden.
+    case sulk
+    case asleep
+    case yawn
+    /// Woken with a jolt.
+    case startled
+    /// A big number, or a level-up.
+    case surprised
+    /// Moved to tears: a goal reached, or a return after a long while.
+    case touched
+    /// Pretending not to have noticed.
+    case lookAway
+    /// Fist up, rooting for you.
+    case cheer
+    case heartEyes
+
+    var restsWithEyesClosed: Bool {
+        switch self {
+        case .relieved, .inhale, .exhale, .settled, .asleep, .yawn: true
+        default: false
+        }
+    }
 
     init(moment: MascotMoment) {
         switch moment {
@@ -350,16 +382,20 @@ enum DynamicMascotExpression: Equatable {
             self = .thinking
         case .resistedSuccess:
             self = .celebrate
-        case .coolingSaved, .coolingRecord:
+        case .coolingSaved:
+            self = .cheer
+        case .coolingRecord:
             self = .cooling
-        case .gaveInSaved, .observingRecord:
+        case .gaveInSaved:
+            self = .lookAway
+        case .observingRecord:
             self = .observe
         case .assetPositive(let type):
             self = type == .food ? .relieved : .sparkle
         case .goalProgress(let progress, _):
             self = progress > 0 ? .proud : .curious
         case .goalCompleted:
-            self = .celebrate
+            self = .touched
         case .reviewCalm:
             self = .relieved
         }
@@ -375,12 +411,14 @@ struct AnimatedXiaoRenView: View {
     var reduceMotion = false
     var reaction: MascotReaction?
     var reactionToken = 0
-    var allowsIdleMotion = false
+    var allowsIdleMotion = true
     var isPaused = false
     var heldType: ResistType?
     @State private var isVisible = false
     @State private var isPlaying = false
     @State private var motionStartedAt: Date?
+    @State private var breathPhase = Double.random(in: 0..<6)
+    @State private var globalFrame = CGRect.zero
 
     private var isActive: Bool {
         isVisible && motionEnabled && scenePhase == .active && !reduceMotion && !isPaused
@@ -392,13 +430,19 @@ struct AnimatedXiaoRenView: View {
 
     var body: some View {
         TimelineView(.animation(
-            minimumInterval: isPlaying ? 1.0 / 30.0 : 0.1,
+            minimumInterval: isPlaying ? 1.0 / 30.0 : 1.0 / 20.0,
             paused: !isActive || (!isPlaying && !allowsIdleMotion)
         )) { context in
             let elapsed = motionStartedAt.map { context.date.timeIntervalSince($0) } ?? 0
-            let pose = isActive && isPlaying ? reaction?.sample(at: elapsed) ?? .rest : .rest
-            let blink = isActive && allowsIdleMotion && !isPlaying
-                ? CGFloat(MascotMotionSample.blinkOpenness(at: context.date.timeIntervalSinceReferenceDate)) : 1
+            let isIdle = isActive && allowsIdleMotion && !isPlaying
+            let now = context.date.timeIntervalSinceReferenceDate
+            let pose = lookingPose(
+                from: isActive && isPlaying ? reaction?.sample(at: elapsed) ?? .rest : .rest,
+                at: context.date
+            )
+            let blink = isIdle ? CGFloat(MascotMotionSample.blinkOpenness(at: now)) : 1
+            // A slow breath through the whole body whenever nothing else is playing.
+            let breath = isIdle ? sin(now * 1.9 + breathPhase) : 0
 
             ZStack {
                 hands(pose: pose)
@@ -411,14 +455,17 @@ struct AnimatedXiaoRenView: View {
                     }
                     .shadow(color: .punchBlack.opacity(0.18), radius: 0, x: 0, y: size * 0.05)
 
-                eyes(blink: blink, pose: pose)
-                brows(pose: pose)
-                mouth(pose: pose)
+                if expression != .sulk {
+                    eyes(blink: blink, pose: pose)
+                    brows(pose: pose)
+                    mouth(pose: pose)
+                }
                 accessory(pose: pose)
                 if let heldType {
                     TypeMascotPoseAccessory(
                         type: heldType, lift: CGFloat(pose.propLift),
-                        squeeze: CGFloat(pose.propSqueeze), tilt: pose.propTilt
+                        squeeze: CGFloat(pose.propSqueeze), tilt: pose.propTilt,
+                        push: CGFloat(pose.propPush)
                     )
                     .frame(width: size, height: size * 0.96)
                 }
@@ -432,11 +479,16 @@ struct AnimatedXiaoRenView: View {
                 }
             }
             .frame(width: size, height: size * 0.96)
-            .scaleEffect(x: pose.scaleX, y: pose.scaleY, anchor: .bottom)
-            .rotationEffect(.degrees(pose.tilt))
-            .offset(y: size * pose.vertical)
+            .scaleEffect(x: pose.scaleX * (1 - 0.012 * breath), y: pose.scaleY * (1 + 0.02 * breath), anchor: .bottom)
+            .rotationEffect(.degrees(pose.tilt + pose.spin + (isActive ? MascotAttention.shared.lean(at: context.date) : 0)))
+            .offset(x: size * pose.shiftX, y: size * pose.vertical)
         }
         .frame(width: size, height: size * 0.96)
+        .onGeometryChange(for: CGRect.self) { proxy in
+            proxy.frame(in: .global)
+        } action: { frame in
+            globalFrame = frame
+        }
         .accessibilityHidden(true)
         .onAppear { isVisible = true }
         .onDisappear {
@@ -460,11 +512,26 @@ struct AnimatedXiaoRenView: View {
         }
     }
 
+    /// Turns the eyes toward the user's finger on top of whatever the current motion is doing.
+    private func lookingPose(from pose: MascotMotionSample, at date: Date) -> MascotMotionSample {
+        guard isActive else { return pose }
+        let look = MascotAttention.shared.look(from: globalFrame, at: date)
+        guard look != .zero else { return pose }
+        var pose = pose
+        pose.gaze = min(max(pose.gaze + Double(look.dx) * 1.1, -1.2), 1.2)
+        pose.gazeY = min(max(pose.gazeY + Double(look.dy) * 0.9, -1.2), 1.2)
+        return pose
+    }
+
     private func eyes(blink: CGFloat, pose: MascotMotionSample) -> some View {
-        let restingClosure: Double = expression == .relieved ? 1 : 0
+        let restingClosure: Double = expression.restsWithEyesClosed ? 1 : 0
+        // Craving looks down at whatever it is holding.
+        let lookY = pose.gazeY + (expression == .craving ? 1.1 : expression == .lookAway ? -0.5 : 0)
+        // Looking away keeps its eyes firmly off to one side.
+        let look = pose.gaze + (expression == .lookAway ? 1.3 : 0)
         return ZStack {
-            eye(x: -size * 0.17, openness: min(blink, 1 - max(restingClosure, pose.leftClosure)), look: pose.gaze, lookY: pose.gazeY)
-            eye(x: size * 0.17, openness: min(blink, 1 - max(restingClosure, pose.rightClosure)), look: pose.gaze, lookY: pose.gazeY)
+            eye(x: -size * 0.17, openness: min(blink, 1 - max(restingClosure, pose.leftClosure)), look: look, lookY: lookY)
+            eye(x: size * 0.17, openness: min(blink, 1 - max(restingClosure, pose.rightClosure)), look: look, lookY: lookY)
         }
     }
 
@@ -472,24 +539,55 @@ struct AnimatedXiaoRenView: View {
         Group {
             if openness < 0.2 {
                 Path { path in
-                    path.move(to: CGPoint(x: 0, y: size * 0.025))
+                    // Settled eyes arch upward into a smile; every other closed eye droops.
+                    let isHappy = expression == .settled
+                    let edgeY = size * (isHappy ? 0.06 : 0.025)
+                    path.move(to: CGPoint(x: 0, y: edgeY))
                     path.addQuadCurve(
-                        to: CGPoint(x: size * 0.17, y: size * 0.025),
-                        control: CGPoint(x: size * 0.085, y: size * 0.09)
+                        to: CGPoint(x: size * 0.17, y: edgeY),
+                        control: CGPoint(x: size * 0.085, y: size * (isHappy ? -0.03 : 0.09))
                     )
                 }
                 .stroke(Color.punchBlack, style: StrokeStyle(lineWidth: size * 0.032, lineCap: .round))
                 .frame(width: size * 0.17, height: size * 0.07)
             } else {
-                ZStack {
-                    Capsule()
-                        .fill(Color.white)
-                        .frame(width: size * 0.17, height: size * 0.25 * openness)
+                if expression == .heartEyes {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: size * 0.17, weight: .black))
+                        .foregroundStyle(Color.punchPink)
+                } else {
+                    let isWide = expression == .startled || expression == .surprised
+                    let pupil: CGFloat = isWide ? 0.04 : expression == .touched ? 0.09 : 0.055
+                    ZStack {
+                        Capsule()
+                            .fill(Color.white)
+                            .frame(width: size * 0.17, height: size * 0.25 * openness * (isWide ? 1.14 : 1))
 
-                    Circle()
-                        .fill(Color.punchBlack)
-                        .frame(width: size * 0.055)
-                        .offset(x: CGFloat(look) * size * 0.034, y: size * 0.03 * (openness + CGFloat(lookY)))
+                        if expression == .dizzy {
+                            // Swirling eyes.
+                            Circle()
+                                .stroke(Color.punchBlack, lineWidth: size * 0.022)
+                                .frame(width: size * 0.11)
+                            Circle()
+                                .fill(Color.punchBlack)
+                                .frame(width: size * 0.035)
+                                .offset(x: CGFloat(look) * size * 0.03)
+                        } else {
+                            Circle()
+                                .fill(Color.punchBlack)
+                                .frame(width: size * pupil)
+                                .overlay(alignment: .topLeading) {
+                                    if expression == .touched {
+                                        // A glint of welling tears.
+                                        Circle()
+                                            .fill(Color.white)
+                                            .frame(width: size * 0.032)
+                                            .offset(x: size * 0.012, y: size * 0.012)
+                                    }
+                                }
+                                .offset(x: CGFloat(look) * size * 0.034, y: size * 0.03 * (openness + CGFloat(lookY)))
+                        }
+                    }
                 }
             }
         }
@@ -506,19 +604,28 @@ struct AnimatedXiaoRenView: View {
 
     private var leftBrowRotation: CGFloat {
         switch expression {
-        case .hello, .relieved, .cooling, .observe: -8
-        case .curious, .sparkle: -16
-        case .thinking: 12
-        case .proud, .celebrate: -6
+        case .hello, .relieved, .cooling, .observe, .settled, .heartEyes: -8
+        case .curious, .sparkle, .surprised, .startled, .touched: -16
+        case .thinking, .craving, .dizzy: 12
+        case .cheer: 17
+        case .inhale: 5
+        case .exhale, .yawn: -12
+        case .proud, .celebrate, .sulk, .lookAway: -6
+        case .asleep: -3
         }
     }
 
     private var rightBrowRotation: CGFloat {
         switch expression {
-        case .hello, .relieved, .cooling, .observe: 8
-        case .curious, .sparkle: 16
-        case .thinking: -12
-        case .proud, .celebrate: 6
+        case .hello, .relieved, .cooling, .observe, .settled, .heartEyes: 8
+        case .curious, .sparkle, .surprised, .startled, .touched: 16
+        case .thinking, .craving, .dizzy: -12
+        case .cheer: -17
+        case .inhale: -5
+        case .exhale, .yawn: 12
+        case .proud, .celebrate, .sulk: 6
+        case .lookAway: 12
+        case .asleep: 3
         }
     }
 
@@ -546,6 +653,60 @@ struct AnimatedXiaoRenView: View {
                     to: CGPoint(x: centerX + size * 0.16, y: centerY),
                     control: CGPoint(x: centerX, y: centerY + size * (0.13 + pose.smile * 0.035))
                 )
+            case .dizzy:
+                // A wobbly line.
+                path.move(to: CGPoint(x: centerX - size * 0.12, y: centerY + size * 0.03))
+                path.addCurve(
+                    to: CGPoint(x: centerX + size * 0.12, y: centerY + size * 0.03),
+                    control1: CGPoint(x: centerX - size * 0.04, y: centerY - size * 0.05),
+                    control2: CGPoint(x: centerX + size * 0.04, y: centerY + size * 0.11)
+                )
+            case .sulk:
+                break
+            case .asleep:
+                path.addEllipse(in: CGRect(x: centerX - size * 0.03, y: centerY, width: size * 0.06, height: size * 0.065))
+            case .yawn:
+                path.addEllipse(in: CGRect(x: centerX - size * 0.075, y: centerY - size * 0.03, width: size * 0.15, height: size * 0.17))
+            case .startled:
+                path.addEllipse(in: CGRect(x: centerX - size * 0.07, y: centerY - size * 0.01, width: size * 0.14, height: size * 0.1))
+            case .surprised:
+                path.addEllipse(in: CGRect(x: centerX - size * 0.045, y: centerY - size * 0.015, width: size * 0.09, height: size * 0.11))
+            case .touched:
+                // A smile that trembles a little.
+                path.move(to: CGPoint(x: centerX - size * 0.13, y: centerY + size * 0.01))
+                path.addCurve(
+                    to: CGPoint(x: centerX + size * 0.13, y: centerY + size * 0.01),
+                    control1: CGPoint(x: centerX - size * 0.05, y: centerY + size * 0.15),
+                    control2: CGPoint(x: centerX + size * 0.04, y: centerY + size * 0.04)
+                )
+            case .lookAway:
+                // Whistling off to one side.
+                path.addEllipse(in: CGRect(x: centerX + size * 0.03, y: centerY, width: size * 0.06, height: size * 0.065))
+            case .cheer:
+                path.move(to: CGPoint(x: centerX - size * 0.09, y: centerY + size * 0.04))
+                path.addQuadCurve(
+                    to: CGPoint(x: centerX + size * 0.09, y: centerY + size * 0.04),
+                    control: CGPoint(x: centerX, y: centerY + size * 0.075)
+                )
+            case .heartEyes:
+                path.move(to: CGPoint(x: centerX - size * 0.16, y: centerY - size * 0.01))
+                path.addQuadCurve(
+                    to: CGPoint(x: centerX + size * 0.16, y: centerY - size * 0.01),
+                    control: CGPoint(x: centerX, y: centerY + size * 0.19)
+                )
+            case .settled:
+                path.move(to: CGPoint(x: centerX - size * 0.12, y: centerY))
+                path.addQuadCurve(
+                    to: CGPoint(x: centerX + size * 0.12, y: centerY),
+                    control: CGPoint(x: centerX, y: centerY + size * 0.16)
+                )
+            case .craving:
+                path.addEllipse(in: CGRect(x: centerX - size * 0.065, y: centerY - size * 0.01, width: size * 0.13, height: size * 0.06))
+            case .inhale:
+                path.move(to: CGPoint(x: centerX - size * 0.035, y: centerY + size * 0.03))
+                path.addLine(to: CGPoint(x: centerX + size * 0.035, y: centerY + size * 0.03))
+            case .exhale:
+                path.addEllipse(in: CGRect(x: centerX - size * 0.035, y: centerY - size * 0.005, width: size * 0.07, height: size * 0.075))
             case .curious, .sparkle:
                 path.addEllipse(in: CGRect(x: centerX - size * 0.055, y: centerY - size * 0.02, width: size * 0.11, height: size * 0.085))
             case .thinking:
@@ -643,6 +804,128 @@ struct AnimatedXiaoRenView: View {
                 .offset(x: size * 0.34, y: size * 0.10)
         case .relieved:
             EmptyView()
+        case .craving:
+            // A drop of drool at the corner of the mouth.
+            Capsule()
+                .fill(Color.punchBlue)
+                .frame(width: size * 0.045, height: size * 0.085)
+                .offset(x: size * 0.085, y: size * 0.125)
+        case .inhale:
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                Circle()
+                    .fill(Color.punchPink.opacity(0.62))
+                    .frame(width: size * 0.14)
+                    .offset(x: size * 0.31 * side, y: size * 0.07)
+            }
+        case .exhale:
+            // Breath lines drifting away from the mouth.
+            ForEach(0..<3, id: \.self) { index in
+                Capsule()
+                    .fill(Color.punchBlue.opacity(0.85 - Double(index) * 0.2))
+                    .frame(width: size * (0.10 - CGFloat(index) * 0.02), height: size * 0.03)
+                    .rotationEffect(.degrees(12))
+                    .offset(
+                        x: size * (0.19 + CGFloat(index) * 0.09),
+                        y: size * (0.075 + CGFloat(index) * 0.035)
+                    )
+            }
+        case .dizzy:
+            // Stars circling overhead.
+            ForEach(0..<3, id: \.self) { index in
+                Image(systemName: "star.fill")
+                    .font(.system(size: size * (0.12 - CGFloat(index) * 0.015), weight: .black))
+                    .foregroundStyle(Color.punchYellow)
+                    .offset(
+                        x: size * (CGFloat(index) - 1) * 0.24 + CGFloat(pose.gaze) * size * 0.06,
+                        y: -size * (0.44 - (index == 1 ? 0.06 : 0))
+                    )
+            }
+        case .asleep:
+            ForEach(0..<2, id: \.self) { index in
+                Text("z")
+                    .font(.system(size: size * (0.16 + CGFloat(index) * 0.07), weight: .black, design: .rounded))
+                    .foregroundStyle(Color.punchBlue)
+                    .offset(x: size * (0.36 + CGFloat(index) * 0.1), y: -size * (0.3 + CGFloat(index) * 0.13))
+            }
+        case .yawn:
+            // A sleepy tear.
+            Circle()
+                .fill(Color.punchBlue)
+                .frame(width: size * 0.05)
+                .offset(x: size * 0.29, y: -size * 0.06)
+        case .startled:
+            ForEach(0..<3, id: \.self) { index in
+                Capsule()
+                    .fill(Color.punchBlack)
+                    .frame(width: size * 0.03, height: size * 0.1)
+                    .rotationEffect(.degrees(Double(index - 1) * 28))
+                    .offset(x: size * CGFloat(index - 1) * 0.13, y: -size * (index == 1 ? 0.52 : 0.48))
+            }
+        case .surprised:
+            Image(systemName: "exclamationmark")
+                .font(.system(size: size * 0.22, weight: .black))
+                .foregroundStyle(Color.punchYellow)
+                .rotationEffect(.degrees(12))
+                .offset(x: size * 0.4, y: -size * 0.32)
+        case .touched:
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                Capsule()
+                    .fill(Color.punchBlue)
+                    .frame(width: size * 0.045, height: size * 0.075)
+                    .offset(x: size * 0.25 * side, y: size * 0.04)
+                Circle()
+                    .fill(Color.punchPink.opacity(0.5))
+                    .frame(width: size * 0.09)
+                    .offset(x: size * 0.34 * side, y: size * 0.11)
+            }
+        case .lookAway:
+            Image(systemName: "music.note")
+                .font(.system(size: size * 0.17, weight: .black))
+                .foregroundStyle(Color.punchBlack)
+                .rotationEffect(.degrees(10))
+                .offset(x: size * 0.36, y: -size * 0.06)
+        case .cheer:
+            // A raised fist, with two lines of effort beside it.
+            Circle()
+                .fill(color)
+                .overlay { Circle().stroke(Color.white, lineWidth: size * 0.04) }
+                .frame(width: size * 0.2)
+                .offset(x: size * 0.4, y: -size * 0.14)
+            ForEach(0..<2, id: \.self) { index in
+                Capsule()
+                    .fill(Color.punchYellow)
+                    .frame(width: size * 0.03, height: size * 0.09)
+                    .rotationEffect(.degrees(index == 0 ? 20 : 55))
+                    .offset(x: size * (0.44 + CGFloat(index) * 0.08), y: -size * (0.32 - CGFloat(index) * 0.07))
+            }
+        case .heartEyes:
+            ForEach(0..<2, id: \.self) { index in
+                Image(systemName: "heart.fill")
+                    .font(.system(size: size * (0.12 - CGFloat(index) * 0.03), weight: .black))
+                    .foregroundStyle(Color.punchPink)
+                    .offset(x: size * (0.38 + CGFloat(index) * 0.08), y: -size * (0.28 + CGFloat(index) * 0.13))
+            }
+        case .sulk:
+            // A puff of annoyance where the face would be.
+            ForEach(0..<4, id: \.self) { index in
+                Capsule()
+                    .fill(Color.punchPink)
+                    .frame(width: size * 0.035, height: size * 0.1)
+                    .offset(y: -size * 0.075)
+                    .rotationEffect(.degrees(Double(index) * 90 + 45))
+                    .offset(x: size * 0.3, y: -size * 0.3)
+            }
+        case .settled:
+            ForEach([-1.0, 1.0], id: \.self) { side in
+                Circle()
+                    .fill(Color.punchPink.opacity(0.5))
+                    .frame(width: size * 0.09)
+                    .offset(x: size * 0.33 * side, y: size * 0.09)
+            }
+            Image(systemName: "sparkle")
+                .font(.system(size: size * 0.15, weight: .black))
+                .foregroundStyle(Color.punchYellow)
+                .offset(x: size * 0.39, y: -size * 0.30)
         }
     }
 

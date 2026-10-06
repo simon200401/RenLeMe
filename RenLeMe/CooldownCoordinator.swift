@@ -3,7 +3,9 @@ import UserNotifications
 
 enum CooldownCoordinator {
     static func schedule(for record: ResistRecord) {
-        guard record.status == .pending, let cooldownUntil = record.cooldownUntil else { return }
+        guard AppSettings.cooldownReminderEnabled,
+              record.status == .pending, let cooldownUntil = record.cooldownUntil
+        else { return }
 
         let recordId = record.id
         let identifier = recordId.uuidString

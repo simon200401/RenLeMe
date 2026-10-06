@@ -29,9 +29,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        if let recordId = response.notification.request.content.userInfo["recordId"] as? String {
+        let userInfo = response.notification.request.content.userInfo
+        if let recordId = userInfo["recordId"] as? String {
             UserDefaults.standard.set(recordId, forKey: "renleme.pendingCooldownRoute")
             NotificationCenter.default.post(name: .openCooldownRecord, object: recordId)
+        } else if userInfo["route"] as? String == "results" {
+            UserDefaults.standard.set(true, forKey: "renleme.pendingWeeklySummaryRoute")
+            NotificationCenter.default.post(name: .openWeeklySummary, object: nil)
         }
         completionHandler()
     }
@@ -58,7 +62,13 @@ struct RenLeMeApp: App {
         ]
 
         UINavigationBar.appearance().standardAppearance = appearance
-        UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        // At the top of a page the bar is see-through (the page is the same colour anyway), so things
+        // just under it, like 小忍's speech bubble, are not cut off by the bar's edge.
+        let edgeAppearance = UINavigationBarAppearance()
+        edgeAppearance.configureWithTransparentBackground()
+        edgeAppearance.titleTextAttributes = appearance.titleTextAttributes
+        edgeAppearance.largeTitleTextAttributes = appearance.largeTitleTextAttributes
+        UINavigationBar.appearance().scrollEdgeAppearance = edgeAppearance
         UINavigationBar.appearance().compactAppearance = appearance
         UINavigationBar.appearance().tintColor = titleColor
 
@@ -90,6 +100,9 @@ struct AppRootView: View {
     @AppStorage("didRemoveLegacyDefaultGoalsV1") private var didRemoveLegacyDefaultGoalsV1 = false
     @AppStorage("didCompleteWelcomeOnboarding") private var didCompleteWelcomeOnboarding = false
     @State private var selectedTab: AppTab = .home
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(WeeklySummaryScheduler.enabledKey) private var weeklySummaryEnabled = false
+    @State private var pauseType: ResistType?
     @State private var isPresentingRecord = false
     @State private var isShowingWelcomeOnboarding = false
     @State private var isShowingLaunchSplash = true
@@ -98,7 +111,11 @@ struct AppRootView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
-                HomeView(onAddRecord: { isPresentingRecord = true })
+                HomeView(
+                    onPause: { pauseType = $0 },
+                    onDirectRecord: { isPresentingRecord = true },
+                    onShowResults: { selectedTab = .results }
+                )
             }
             .tabItem {
                 Label(AppTab.home.title, systemImage: AppTab.home.symbolName)
@@ -106,20 +123,12 @@ struct AppRootView: View {
             .tag(AppTab.home)
 
             NavigationStack {
-                RecordFlowView()
+                ResultsView()
             }
             .tabItem {
-                Label(AppTab.record.title, systemImage: AppTab.record.symbolName)
+                Label(AppTab.results.title, systemImage: AppTab.results.symbolName)
             }
-            .tag(AppTab.record)
-
-            NavigationStack {
-                GoalsView()
-            }
-            .tabItem {
-                Label(AppTab.goals.title, systemImage: AppTab.goals.symbolName)
-            }
-            .tag(AppTab.goals)
+            .tag(AppTab.results)
 
             NavigationStack {
                 ProfileView {
@@ -133,12 +142,20 @@ struct AppRootView: View {
         }
         .tint(.punchBlack)
         .environment(\.mascotMotionEnabled,
-                     !isShowingLaunchSplash && !isShowingWelcomeOnboarding && !isPresentingRecord && routedCooldownRecord == nil)
+                     !isShowingLaunchSplash && !isShowingWelcomeOnboarding && pauseType == nil && !isPresentingRecord && routedCooldownRecord == nil)
         .blur(radius: isShowingWelcomeOnboarding ? 2.4 : 0)
         .saturation(isShowingWelcomeOnboarding ? 0.58 : 1)
         .brightness(isShowingWelcomeOnboarding ? -0.05 : 0)
         .scaleEffect(isShowingWelcomeOnboarding ? 0.985 : 1)
         .animation(.easeOut(duration: 0.22), value: isShowingWelcomeOnboarding)
+        .sheet(item: $pauseType) { type in
+            NavigationStack {
+                PauseFlowView(type: type)
+                    .environment(\.mascotMotionEnabled, true)
+            }
+            .presentationDetents([.large])
+            .interactiveDismissDisabled()
+        }
         .sheet(isPresented: $isPresentingRecord) {
             NavigationStack {
                 RecordFlowView(isModal: true)
@@ -172,6 +189,9 @@ struct AppRootView: View {
             removeLegacyDefaultGoalsIfNeeded()
             seedFoodNutritionItemsIfNeeded()
             routePendingCooldownIfNeeded()
+            routePendingWeeklySummaryIfNeeded()
+            rescheduleWeeklySummary()
+            MascotAttention.shared.install()
         }
         .onReceive(NotificationCenter.default.publisher(for: .openCooldownRecord)) { notification in
             guard let rawId = notification.object as? String, let id = UUID(uuidString: rawId) else { return }
@@ -180,9 +200,43 @@ struct AppRootView: View {
         .onChange(of: records.count) { _, _ in
             routePendingCooldownIfNeeded()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openWeeklySummary)) { _ in
+            routePendingWeeklySummaryIfNeeded()
+        }
+        .onChange(of: weeklySummary) { _, _ in
+            rescheduleWeeklySummary()
+        }
+        .onChange(of: weeklySummaryEnabled) { _, _ in
+            rescheduleWeeklySummary()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { rescheduleWeeklySummary() }
+        }
         .onChange(of: selectedTab) { _, _ in
             UIApplication.shared.dismissKeyboard()
         }
+    }
+
+    private var weeklySummary: WeeklySummaryContent {
+        WeeklySummaryContent(records: records, goals: goals)
+    }
+
+    private func rescheduleWeeklySummary() {
+        WeeklySummaryScheduler.reschedule(with: weeklySummary)
+    }
+
+    private func routePendingWeeklySummaryIfNeeded() {
+        let key = "renleme.pendingWeeklySummaryRoute"
+        guard UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.removeObject(forKey: key)
+        dismissPresentedFlows()
+        selectedTab = .results
+    }
+
+    private func dismissPresentedFlows() {
+        pauseType = nil
+        isPresentingRecord = false
+        routedCooldownRecord = nil
     }
 
     private func finishLaunchSplash() {
@@ -232,6 +286,7 @@ struct AppRootView: View {
         UserDefaults.standard.removeObject(forKey: "renleme.pendingCooldownRoute")
         isShowingLaunchSplash = false
         isShowingWelcomeOnboarding = false
+        pauseType = nil
         isPresentingRecord = false
         routedCooldownRecord = record
     }
@@ -294,24 +349,21 @@ struct AppRootView: View {
 
 enum AppTab: Hashable {
     case home
-    case record
-    case goals
+    case results
     case profile
 
     var title: String {
         switch self {
-        case .home: "首页"
-        case .record: "记录"
-        case .goals: "目标"
+        case .home: "今天"
+        case .results: "成果"
         case .profile: "我的"
         }
     }
 
     var symbolName: String {
         switch self {
-        case .home: "house.fill"
-        case .record: "plus.circle.fill"
-        case .goals: "target"
+        case .home: "pause.circle.fill"
+        case .results: "chart.bar.fill"
         case .profile: "person.crop.circle"
         }
     }

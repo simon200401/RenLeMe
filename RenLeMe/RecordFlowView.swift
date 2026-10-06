@@ -21,6 +21,7 @@ struct RecordFlowView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Goal.createdAt, order: .forward) private var goals: [Goal]
+    @Query(sort: \ResistRecord.createdAt, order: .reverse) private var records: [ResistRecord]
 
     var isModal = false
 
@@ -664,11 +665,7 @@ struct RecordFlowView: View {
     }
 
     private var cooldownDurationText: String {
-        switch selectedType {
-        case .money: "24 小时"
-        case .food: "10 分钟"
-        case .time: "15 分钟"
-        }
+        selectedType.cooldownDurationText
     }
 
     private var selectedFoodDetailText: String {
@@ -797,7 +794,7 @@ struct RecordFlowView: View {
             }
             return
         }
-        selectedGoalId = StatsCalculator.defaultGoalId(for: selectedType, goals: goals)
+        selectedGoalId = StatsCalculator.suggestedGoalId(for: selectedType, goals: goals, records: records)
     }
 
     private func selectTemplate(_ template: PropTemplate) {

@@ -322,11 +322,19 @@ extension UIApplication {
 
 enum AppHaptics {
     static func lightTap() {
+        guard AppSettings.hapticsEnabled else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     static func success() {
+        guard AppSettings.hapticsEnabled else { return }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    /// A soft pulse for breathing guidance; `intensity` runs 0...1.
+    static func breath(intensity: Double) {
+        guard AppSettings.hapticsEnabled else { return }
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: min(max(intensity, 0), 1))
     }
 }
 
@@ -495,6 +503,127 @@ struct ReviewMascotSticker: View {
     }
 }
 
+/// 小忍 peeking over a ledge: only the top half shows. Tap and it ducks, then comes back up.
+struct PeekingMascot: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isUp = false
+    @State private var face: DynamicMascotExpression = .curious
+    @State private var duckToken = 0
+
+    private static let faces: [DynamicMascotExpression] = [.curious, .hello, .heartEyes, .lookAway, .settled, .sparkle]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Button {
+                AppHaptics.lightTap()
+                duckToken += 1
+            } label: {
+                AnimatedXiaoRenView(color: .punchGreen, expression: face, size: 92, reduceMotion: reduceMotion)
+                    .offset(y: isUp ? 4 : 96)
+                    .frame(width: 120, height: 56, alignment: .top)
+                    .clipped()
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
+            .accessibilityLabel("小忍探出头来")
+
+            Capsule()
+                .fill(Color.punchBlack.opacity(0.14))
+                .frame(width: 150, height: 6)
+        }
+        .frame(maxWidth: .infinity)
+        .task(id: duckToken) {
+            if duckToken > 0 {
+                setUp(false)
+                try? await Task.sleep(for: .seconds(0.45))
+                face = MascotVariety.next(from: Self.faces, avoiding: [face])
+            } else {
+                try? await Task.sleep(for: .seconds(0.5))
+            }
+            guard !Task.isCancelled else { return }
+            setUp(true)
+        }
+        .accessibilityIdentifier("peekingMascot")
+    }
+
+    private func setUp(_ up: Bool) {
+        if reduceMotion {
+            isUp = up
+        } else {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.55)) {
+                isUp = up
+            }
+        }
+    }
+}
+
+/// What 小忍 says, in a bubble whose tail points down at it.
+struct MascotSpeechBubble: View {
+    let text: String
+    /// Horizontal position of the tail, measured from the bubble's trailing edge.
+    var tailInset: CGFloat = 30
+
+    var body: some View {
+        Text(text)
+            .font(.rounded(15, weight: .black))
+            .foregroundStyle(Color.punchBlack)
+            .lineLimit(1)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 8)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .background(alignment: .bottomTrailing) {
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: 13, height: 13)
+                    .rotationEffect(.degrees(45))
+                    .offset(x: -tailInset, y: 5)
+            }
+            .shadow(color: .punchBlack.opacity(0.16), radius: 0, x: 0, y: 3)
+            .fixedSize()
+            .accessibilityLabel("小忍说：\(text)")
+    }
+}
+
+/// Picks a different face each time a screen appears, from faces that suit where 小忍 is standing.
+enum MascotVariety {
+    static func next(
+        from pool: [DynamicMascotExpression],
+        avoiding excluded: [DynamicMascotExpression?] = []
+    ) -> DynamicMascotExpression {
+        let candidates = pool.filter { !excluded.contains($0) }
+        return (candidates.isEmpty ? pool : candidates).randomElement() ?? .hello
+    }
+
+    static func typeBadgePool(for type: ResistType) -> [DynamicMascotExpression] {
+        switch type {
+        case .money: [.sparkle, .craving, .curious, .proud]
+        case .food: [.observe, .craving, .settled, .hello]
+        case .time: [.relieved, .settled, .hello, .curious]
+        }
+    }
+
+    static func assetPool(for type: ResistType) -> [DynamicMascotExpression] {
+        switch type {
+        case .money: [.proud, .celebrate, .sparkle]
+        case .food: [.relieved, .settled, .observe]
+        case .time: [.hello, .proud, .settled]
+        }
+    }
+
+    /// One face per type, all different from each other and from what each showed last time.
+    static func distinctFaces(
+        previous: [ResistType: DynamicMascotExpression],
+        pool: (ResistType) -> [DynamicMascotExpression]
+    ) -> [ResistType: DynamicMascotExpression] {
+        var faces: [ResistType: DynamicMascotExpression] = [:]
+        for type in ResistType.allCases {
+            faces[type] = next(from: pool(type), avoiding: [previous[type]] + faces.values.map(Optional.some))
+        }
+        return faces
+    }
+}
+
 struct TypeMascotBadge: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let type: ResistType
@@ -503,11 +632,15 @@ struct TypeMascotBadge: View {
     var reaction: MascotReaction?
     var reactionToken = 0
     var isPaused = false
+    /// Overrides the default face for this type.
+    var face: DynamicMascotExpression?
 
     private var expression: DynamicMascotExpression {
-        switch type {
-        case .money, .time: .hello
+        if let face { return face }
+        return switch type {
+        case .money: .sparkle
         case .food: .observe
+        case .time: .relieved
         }
     }
 
@@ -527,6 +660,8 @@ struct TypeMascotPoseAccessory: View {
     var lift: CGFloat = 0
     var squeeze: CGFloat = 0
     var tilt: Double = 0
+    /// 0...1: the prop slides away to the side and fades as it is pushed off.
+    var push: CGFloat = 0
 
     var body: some View {
         GeometryReader { proxy in
@@ -545,6 +680,8 @@ struct TypeMascotPoseAccessory: View {
                         .scaleEffect(x: 1 - squeeze * 0.08, y: 1)
                         .rotationEffect(.degrees(tilt))
                         .position(x: w * 0.54, y: centerY)
+                        .offset(x: push * w * 0.5)
+                        .opacity(1 - push)
                 case .food:
                     let centerY = h * (0.82 - lift * 0.04)
                     mascotArm(from: CGPoint(x: w * 0.25, y: h * 0.66), to: CGPoint(x: w * 0.45, y: centerY + h * 0.01), control: CGPoint(x: w * 0.31, y: centerY + h * 0.025), stroke: stroke)
@@ -553,6 +690,8 @@ struct TypeMascotPoseAccessory: View {
                         .frame(width: w * 0.25, height: h * 0.30)
                         .rotationEffect(.degrees(tilt))
                         .position(x: w * 0.54, y: centerY)
+                        .offset(x: push * w * 0.5)
+                        .opacity(1 - push)
                 case .time:
                     let centerY = h * (0.80 - lift * 0.055)
                     mascotArm(from: CGPoint(x: w * 0.24, y: h * 0.65), to: CGPoint(x: w * 0.43, y: centerY + h * 0.04), control: CGPoint(x: w * 0.32, y: centerY + h * 0.06), stroke: stroke)
@@ -561,6 +700,8 @@ struct TypeMascotPoseAccessory: View {
                         .frame(width: w * 0.29, height: h * 0.29)
                         .rotationEffect(.degrees(tilt))
                         .position(x: w * 0.55, y: centerY)
+                        .offset(x: push * w * 0.5)
+                        .opacity(1 - push)
                 }
             }
         }
@@ -686,6 +827,10 @@ struct MascotFeedbackPopup: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let moment: MascotMoment
     var message: String?
+    /// Replaces the moment's default motion, e.g. with the success move for one kind of urge.
+    var reaction: MascotReaction?
+    var face: DynamicMascotExpression?
+    var heldType: ResistType?
     var onDismiss: () -> Void = {}
 
     var body: some View {
@@ -694,13 +839,18 @@ struct MascotFeedbackPopup: View {
                 .ignoresSafeArea()
                 .onTapGesture(perform: onDismiss)
 
+            if moment.reaction == .celebrate {
+                ConfettiBurst()
+            }
+
             VStack(spacing: 16) {
                 AnimatedXiaoRenView(
                     color: moment.color,
-                    expression: DynamicMascotExpression(moment: moment),
+                    expression: face ?? DynamicMascotExpression(moment: moment),
                     size: 124,
                     reduceMotion: reduceMotion,
-                    reaction: moment.reaction
+                    reaction: reaction ?? moment.reaction,
+                    heldType: heldType
                 )
                     .padding(.top, 4)
 
@@ -1680,7 +1830,7 @@ struct WeekDotRow: View {
     let completedWeekdays: Set<Int>
     var activeColor: Color = .punchBlack
 
-    private let days = ["一", "二", "三", "四", "五", "六", "日"]
+    private let days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     var body: some View {
         HStack(spacing: 9) {
@@ -1715,13 +1865,16 @@ struct AssetBlockCard: View {
     let value: String
     var subtitle: String
     var isPaused = false
+    /// Overrides the default face for this type.
+    var face: DynamicMascotExpression?
     var onReaction: () -> Void = {}
     @State private var bounceToken = 0
     @State private var lastPlayedToken = 0
     @State private var isReacting = false
 
     private var mascotExpression: DynamicMascotExpression {
-        switch type {
+        if let face { return face }
+        return switch type {
         case .money: .proud
         case .food: .relieved
         case .time: .hello
@@ -1872,11 +2025,32 @@ struct SectionHeader: View {
 
 struct CooldownStatusLabel: View {
     let record: ResistRecord
+    /// One line of plain text instead of a chip, for slim rows.
+    var isCompact = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 15)) { context in
             let isReady = (record.cooldownUntil ?? .distantPast) <= context.date
 
+            if isCompact {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(isReady ? Color.punchGreen : Color.punchBlack)
+                        .frame(width: 8, height: 8)
+
+                    Text(isReady ? "可以决定了" : "冷静中")
+                        .font(.rounded(13, weight: .black))
+                        .foregroundStyle(Color.ink)
+
+                    if !isReady, let cooldownUntil = record.cooldownUntil {
+                        Text(timerInterval: context.date...cooldownUntil, countsDown: true)
+                            .font(.rounded(13, weight: .black))
+                            .foregroundStyle(Color.secondaryInk)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                    }
+                }
+            } else {
             HStack(spacing: 8) {
                 StatusChip(
                     title: isReady ? "可以决定了" : "冷静中",
@@ -1890,6 +2064,7 @@ struct CooldownStatusLabel: View {
                         .monospacedDigit()
                         .lineLimit(1)
                 }
+            }
             }
         }
     }

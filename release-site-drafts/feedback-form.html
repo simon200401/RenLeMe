@@ -1,0 +1,16 @@
+      <form class="feedback" name="feedback" method="POST" action="thanks.html" data-netlify="true" netlify-honeypot="website">
+        <input type="hidden" name="form-name" value="feedback">
+        <p class="trap"><label>请不要填写这一项 <input name="website" tabindex="-1" autocomplete="off"></label></p>
+        <label for="kind">类型</label>
+        <select id="kind" name="kind">
+          <option>遇到问题</option>
+          <option>功能建议</option>
+          <option>其他</option>
+        </select>
+        <label for="message">内容</label>
+        <textarea id="message" name="message" rows="6" required placeholder="例如：点“再等等”之后没有收到提醒，iPhone 15，iOS 18.2"></textarea>
+        <label for="contact">联系方式（可不填）</label>
+        <input id="contact" name="contact" type="text" autocomplete="email" placeholder="需要回复时留一个邮箱">
+        <button class="primary" type="submit">提交反馈</button>
+      </form>
+      <p class="note">提交的内容会发送给开发者，只用于处理你的反馈。请不要写入密码等敏感信息。</p>

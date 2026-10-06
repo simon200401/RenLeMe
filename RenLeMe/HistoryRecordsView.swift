@@ -47,7 +47,9 @@ struct HistoryRecordsView: View {
                         }
                     }
                 }
-                .padding(18)
+.padding(.horizontal, 18)
+                .padding(.top, 6)
+                .padding(.bottom, 18)
             }
             .appScrollDefaults()
         }

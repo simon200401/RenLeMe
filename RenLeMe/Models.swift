@@ -64,12 +64,58 @@ enum ResistType: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    var cooldownSeconds: TimeInterval {
+    var defaultCooldownSeconds: TimeInterval {
         switch self {
         case .money: 24 * 60 * 60
         case .food: 10 * 60
         case .time: 15 * 60
         }
+    }
+
+    /// The lengths offered in settings for this kind of urge.
+    var cooldownOptions: [TimeInterval] {
+        switch self {
+        case .money: [60 * 60, 6 * 60 * 60, 24 * 60 * 60, 3 * 24 * 60 * 60]
+        case .food: [5 * 60, 10 * 60, 20 * 60, 30 * 60]
+        case .time: [5 * 60, 15 * 60, 30 * 60, 60 * 60]
+        }
+    }
+
+    /// How long something of this kind waits in the cooldown box: the user's choice, or the default.
+    var cooldownSeconds: TimeInterval {
+        let chosen = UserDefaults.standard.double(forKey: AppSettings.cooldownKey(for: self))
+        return cooldownOptions.contains(chosen) ? chosen : defaultCooldownSeconds
+    }
+
+    var cooldownDurationText: String {
+        AppSettings.durationText(cooldownSeconds)
+    }
+}
+
+/// Preferences set on the "我的" page.
+enum AppSettings {
+    static let hapticsKey = "hapticsEnabled"
+    static let cooldownReminderKey = "cooldownReminderEnabled"
+
+    static func cooldownKey(for type: ResistType) -> String {
+        "cooldownSeconds.\(type.rawValue)"
+    }
+
+    /// Both switches are on until the user turns them off.
+    static var hapticsEnabled: Bool {
+        UserDefaults.standard.object(forKey: hapticsKey) as? Bool ?? true
+    }
+
+    static var cooldownReminderEnabled: Bool {
+        UserDefaults.standard.object(forKey: cooldownReminderKey) as? Bool ?? true
+    }
+
+    static func durationText(_ seconds: TimeInterval) -> String {
+        let minutes = Int((seconds / 60).rounded())
+        // A single day reads better as "24 小时".
+        if minutes % (24 * 60) == 0, minutes > 24 * 60 { return "\(minutes / (24 * 60)) 天" }
+        if minutes % 60 == 0 { return "\(minutes / 60) 小时" }
+        return "\(minutes) 分钟"
     }
 }
 

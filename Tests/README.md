@@ -18,7 +18,7 @@ swiftc -module-cache-path /private/tmp/renleme-motion-cache \
 ```sh
 swiftc -module-cache-path /private/tmp/renleme-goal-cache \
   RenLeMe/Models.swift RenLeMe/PropTemplates.swift \
-  RenLeMe/StatsCalculator.swift Tests/GoalProgressTests.swift \
+  RenLeMe/StatsCalculator.swift RenLeMe/RecordInsights.swift Tests/GoalProgressTests.swift \
   -o /private/tmp/renleme-goal-tests
 /private/tmp/renleme-goal-tests
 ```

@@ -41,6 +41,48 @@ struct GoalProgressTests {
         let gaveIn = record(.money, value: 75, status: .gaveIn, goalId: money.id)
         let unknown = record(.money, value: 500, goalId: money.id, estimated: false)
         let mismatched = record(.food, value: 420, goalId: money.id)
+        expect(StatsCalculator.suggestedGoalId(for: .food, goals: goals, records: []) == food.id,
+               "A single same-type goal is still the suggestion")
+        expect(StatsCalculator.suggestedGoalId(for: .money, goals: goals + [otherMoney], records: [linked]) == money.id,
+               "With several goals the one closest to completion is suggested")
+        expect(StatsCalculator.suggestedGoalId(
+            for: .money, goals: goals + [otherMoney], records: [record(.money, value: 1000, goalId: money.id)]
+        ) == otherMoney.id, "A finished goal is not suggested")
+        expect(StatsCalculator.suggestedGoalId(for: .money, goals: [food], records: []) == nil,
+               "No suggestion without a goal of that type")
+        // Insights stay quiet until there is enough to go on.
+        let thin = RecordInsights(records: [linked, unlinked])
+        expect(thin.peakTime == nil && thin.typeRates == nil && thin.cooldownEffect == nil,
+               "Two records are not a pattern")
+        expect(thin.topItem?.title == "测试" && thin.topItem?.count == 2, "A repeated item is the one wanted most")
+        expect(RecordInsights(records: [linked]).topItem == nil, "One mention is not a favourite")
+        let cooledWin = record(.money, value: 10)
+        cooledWin.enteredCooldown = true
+        let cooledLoss = record(.food, value: 10, status: .gaveIn)
+        cooledLoss.enteredCooldown = true
+        let insights = RecordInsights(records: [linked, unlinked, cooling, gaveIn, cooledWin, cooledLoss])
+        expect(insights.peakTime?.counts.reduce(0, +) == 6, "Every urge is counted by time of day")
+        if let peak = insights.peakTime {
+            expect(peak.hourCounts.reduce(0, +) == 6, "Every urge lands in an hour of the day")
+            expect(abs((peak.curve.max() ?? 0) - 1) < 0.0001 && peak.curve.allSatisfy { $0 >= 0 },
+                   "The curve is scaled to its highest point")
+            expect((peak.peakIndex * 3..<peak.peakIndex * 3 + 3).contains(peak.peakHour),
+                   "The marker sits inside the block named in the title")
+        }
+        let byType = insights.peakTime?.typeCounts.reduce(into: [ResistType: Int]()) { total, block in
+            for (type, count) in block { total[type, default: 0] += count }
+        }
+        expect(byType?[.money] == 5 && byType?[.food] == 1, "Time-of-day blocks keep the kind of urge")
+        let moneyRate = insights.typeRates?.first { $0.type == .money }
+        expect(moneyRate?.resisted == 3 && moneyRate?.decided == 4, "Pending records are left out of the rate")
+        expect(insights.cooldownEffect?.resisted == 1 && insights.cooldownEffect?.decided == 2,
+               "Cooldown effect only looks at records that waited")
+        expect(RecordInsights.daysTogether(records: []) == 0 && RecordInsights.daysTogether(records: [linked]) == 1,
+               "The first day together is day one")
+        expect(RecordInsights.csv(records: [linked], goals: goals).contains("旅行"), "Export names the linked goal")
+        expect(AppSettings.durationText(ResistType.money.defaultCooldownSeconds) == "24 小时"
+               && AppSettings.durationText(600) == "10 分钟" && AppSettings.durationText(259_200) == "3 天",
+               "Cooldown lengths read naturally")
         let foodRecord = record(.food, value: 420, goalId: food.id)
         let timeRecord = record(.time, value: 30, goalId: time.id)
         for record in [linked, unlinked, cooling, gaveIn, unknown, mismatched, foodRecord, timeRecord] {

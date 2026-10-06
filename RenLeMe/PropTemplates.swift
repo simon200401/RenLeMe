@@ -137,40 +137,90 @@ struct PropTemplate: Identifiable, Hashable {
         PropTemplate(id: "ui.calendar", title: "日历", type: nil, category: .ui, iconKey: .calendar, defaultValue: nil, unit: nil, caption: "历史入口", shadeIndex: 2),
         PropTemplate(id: "ui.chart", title: "统计", type: nil, category: .ui, iconKey: .chart, defaultValue: nil, unit: nil, caption: "复盘趋势", shadeIndex: 3),
 
-        PropTemplate(id: "food.milkTea", title: "奶茶", type: .food, category: .food, iconKey: .milkTea, defaultValue: 420, unit: .kcal, caption: "饮品冲动", shadeIndex: 0),
-        PropTemplate(id: "food.snack", title: "零食", type: .food, category: .food, iconKey: .snack, defaultValue: 180, unit: .kcal, caption: "小零嘴", shadeIndex: 1),
-        PropTemplate(id: "food.takeout", title: "外卖", type: .food, category: .food, iconKey: .takeout, defaultValue: 800, unit: .kcal, caption: "一餐外卖", shadeIndex: 2),
-        PropTemplate(id: "food.dessert", title: "甜品", type: .food, category: .food, iconKey: .dessert, defaultValue: 320, unit: .kcal, caption: "甜食冲动", shadeIndex: 3),
-        PropTemplate(id: "food.friedChicken", title: "炸鸡", type: .food, category: .food, iconKey: .friedChicken, defaultValue: 620, unit: .kcal, caption: "快餐冲动", shadeIndex: 4),
+        // Food defaults are only given where the serving is defined; the serving is the caption.
+        PropTemplate(id: "food.milkTea", title: "奶茶", type: .food, category: .food, iconKey: .milkTea, defaultValue: 420, unit: .kcal, caption: "珍珠奶茶 500ml 全糖", shadeIndex: 0),
+        PropTemplate(id: "food.cola", title: "可乐", type: .food, category: .food, iconKey: .milkTea, defaultValue: 140, unit: .kcal, caption: "1 罐 330ml 含糖", shadeIndex: 1),
+        PropTemplate(id: "food.chips", title: "薯片", type: .food, category: .food, iconKey: .snack, defaultValue: 375, unit: .kcal, caption: "1 包 70g", shadeIndex: 2),
+        PropTemplate(id: "food.friedChicken", title: "炸鸡", type: .food, category: .food, iconKey: .friedChicken, defaultValue: 520, unit: .kcal, caption: "2 块 约 200g", shadeIndex: 3),
+        PropTemplate(id: "food.burger", title: "汉堡", type: .food, category: .food, iconKey: .takeout, defaultValue: 550, unit: .kcal, caption: "1 个 双层牛肉堡", shadeIndex: 4),
+        PropTemplate(id: "food.fries", title: "薯条", type: .food, category: .food, iconKey: .snack, defaultValue: 340, unit: .kcal, caption: "中份 约 110g", shadeIndex: 5),
+        PropTemplate(id: "food.cake", title: "蛋糕", type: .food, category: .food, iconKey: .dessert, defaultValue: 380, unit: .kcal, caption: "奶油蛋糕 1 块 100g", shadeIndex: 6),
+        PropTemplate(id: "food.iceCream", title: "冰淇淋", type: .food, category: .food, iconKey: .dessert, defaultValue: 145, unit: .kcal, caption: "1 球 约 70g", shadeIndex: 7),
+        PropTemplate(id: "food.chocolate", title: "巧克力", type: .food, category: .food, iconKey: .snack, defaultValue: 230, unit: .kcal, caption: "牛奶巧克力 1 排 43g", shadeIndex: 8),
+        PropTemplate(id: "food.instantNoodles", title: "泡面", type: .food, category: .food, iconKey: .takeout, defaultValue: 490, unit: .kcal, caption: "1 桶 约 105g 含调料", shadeIndex: 9),
+        PropTemplate(id: "food.pizza", title: "披萨", type: .food, category: .food, iconKey: .takeout, defaultValue: 570, unit: .kcal, caption: "芝士披萨 2 片", shadeIndex: 10),
+        PropTemplate(id: "food.eggTart", title: "蛋挞", type: .food, category: .food, iconKey: .dessert, defaultValue: 210, unit: .kcal, caption: "葡式蛋挞 1 个", shadeIndex: 11),
+        PropTemplate(id: "food.donut", title: "甜甜圈", type: .food, category: .food, iconKey: .dessert, defaultValue: 250, unit: .kcal, caption: "糖霜甜甜圈 1 个 60g", shadeIndex: 12),
+        PropTemplate(id: "food.beer", title: "啤酒", type: .food, category: .food, iconKey: .milkTea, defaultValue: 215, unit: .kcal, caption: "1 瓶 500ml", shadeIndex: 13),
+        PropTemplate(id: "food.takeout", title: "外卖", type: .food, category: .food, iconKey: .takeout, defaultValue: nil, unit: .kcal, caption: "一餐外卖", shadeIndex: 14),
+        PropTemplate(id: "food.hotpot", title: "火锅", type: .food, category: .food, iconKey: .takeout, defaultValue: nil, unit: .kcal, caption: "一顿火锅", shadeIndex: 15),
+        PropTemplate(id: "food.bbq", title: "烧烤", type: .food, category: .food, iconKey: .friedChicken, defaultValue: nil, unit: .kcal, caption: "一顿烧烤", shadeIndex: 16),
+        PropTemplate(id: "food.malatang", title: "麻辣烫", type: .food, category: .food, iconKey: .takeout, defaultValue: nil, unit: .kcal, caption: "一碗麻辣烫", shadeIndex: 17),
+        PropTemplate(id: "food.lateNight", title: "夜宵", type: .food, category: .food, iconKey: .takeout, defaultValue: nil, unit: .kcal, caption: "睡前加餐", shadeIndex: 18),
+        PropTemplate(id: "food.spicyStrips", title: "辣条", type: .food, category: .food, iconKey: .snack, defaultValue: nil, unit: .kcal, caption: "一包辣条", shadeIndex: 19),
+        PropTemplate(id: "food.snack", title: "零食", type: .food, category: .food, iconKey: .snack, defaultValue: nil, unit: .kcal, caption: "小零嘴", shadeIndex: 20),
+        PropTemplate(id: "food.dessert", title: "甜品", type: .food, category: .food, iconKey: .dessert, defaultValue: nil, unit: .kcal, caption: "甜食冲动", shadeIndex: 21),
 
-        PropTemplate(id: "time.clock", title: "时钟", type: .time, category: .time, iconKey: .clock, defaultValue: nil, unit: .minute, caption: "时间冲动", shadeIndex: 0),
+        PropTemplate(id: "time.shortVideo", title: "短视频", type: .time, category: .time, iconKey: .shortVideo, defaultValue: nil, unit: .minute, caption: "刷屏暂停", shadeIndex: 0),
         PropTemplate(id: "time.gaming", title: "打游戏", type: .time, category: .time, iconKey: .gaming, defaultValue: nil, unit: .minute, caption: "娱乐暂停", shadeIndex: 1),
         PropTemplate(id: "time.drama", title: "追剧", type: .time, category: .time, iconKey: .drama, defaultValue: nil, unit: .minute, caption: "连播提醒", shadeIndex: 2),
-        PropTemplate(id: "time.shortVideo", title: "短视频", type: .time, category: .time, iconKey: .shortVideo, defaultValue: nil, unit: .minute, caption: "刷屏暂停", shadeIndex: 3),
-        PropTemplate(id: "time.sleep", title: "睡觉", type: .time, category: .time, iconKey: .sleep, defaultValue: nil, unit: .minute, caption: "休息记录", shadeIndex: 4),
-        PropTemplate(id: "time.chat", title: "闲聊", type: .time, category: .time, iconKey: .chat, defaultValue: nil, unit: .minute, caption: "聊天记录", shadeIndex: 5),
-        PropTemplate(id: "time.stayUp", title: "熬夜", type: .time, category: .time, iconKey: .stayUp, defaultValue: nil, unit: .minute, caption: "晚睡记录", shadeIndex: 6),
-        PropTemplate(id: "time.delay", title: "拖延", type: .time, category: .time, iconKey: .delay, defaultValue: nil, unit: .minute, caption: "先停一下", shadeIndex: 7),
+        PropTemplate(id: "time.social", title: "刷社交", type: .time, category: .time, iconKey: .chat, defaultValue: nil, unit: .minute, caption: "微博、小红书、朋友圈", shadeIndex: 3),
+        PropTemplate(id: "time.shoppingApp", title: "逛购物App", type: .time, category: .time, iconKey: .shortVideo, defaultValue: nil, unit: .minute, caption: "随手逛一逛", shadeIndex: 4),
+        PropTemplate(id: "time.stayUp", title: "熬夜", type: .time, category: .time, iconKey: .stayUp, defaultValue: nil, unit: .minute, caption: "晚睡记录", shadeIndex: 5),
+        PropTemplate(id: "time.delay", title: "拖延", type: .time, category: .time, iconKey: .delay, defaultValue: nil, unit: .minute, caption: "先停一下", shadeIndex: 6),
+        PropTemplate(id: "time.livestream", title: "看直播", type: .time, category: .time, iconKey: .drama, defaultValue: nil, unit: .minute, caption: "直播间", shadeIndex: 7),
+        PropTemplate(id: "time.novel", title: "看小说", type: .time, category: .time, iconKey: .drama, defaultValue: nil, unit: .minute, caption: "再看一章", shadeIndex: 8),
+        PropTemplate(id: "time.slacking", title: "摸鱼", type: .time, category: .time, iconKey: .delay, defaultValue: nil, unit: .minute, caption: "工作学习时走神", shadeIndex: 9),
+        PropTemplate(id: "time.lieIn", title: "赖床", type: .time, category: .time, iconKey: .sleep, defaultValue: nil, unit: .minute, caption: "再躺一会儿", shadeIndex: 10),
+        PropTemplate(id: "time.chat", title: "闲聊", type: .time, category: .time, iconKey: .chat, defaultValue: nil, unit: .minute, caption: "聊天记录", shadeIndex: 11),
+        PropTemplate(id: "time.sleep", title: "睡觉", type: .time, category: .time, iconKey: .sleep, defaultValue: nil, unit: .minute, caption: "休息记录", shadeIndex: 12),
+        PropTemplate(id: "time.clock", title: "时钟", type: .time, category: .time, iconKey: .clock, defaultValue: nil, unit: .minute, caption: "时间冲动", shadeIndex: 13),
 
-        PropTemplate(id: "money.wallet", title: "钱包", type: .money, category: .money, iconKey: .wallet, defaultValue: nil, unit: .cny, caption: "金钱冲动", shadeIndex: 0),
-        PropTemplate(id: "money.camera", title: "相机", type: .money, category: .money, iconKey: .camera, defaultValue: nil, unit: .cny, caption: "愿望存钱", shadeIndex: 1),
-        PropTemplate(id: "money.clothes", title: "衣服", type: .money, category: .money, iconKey: .clothes, defaultValue: nil, unit: .cny, caption: "穿搭消费", shadeIndex: 2),
-        PropTemplate(id: "money.gamingGear", title: "游戏设备", type: .money, category: .money, iconKey: .gamingGear, defaultValue: nil, unit: .cny, caption: "设备升级", shadeIndex: 3),
-        PropTemplate(id: "money.misc", title: "杂物", type: .money, category: .money, iconKey: .misc, defaultValue: nil, unit: .cny, caption: "小物件", shadeIndex: 4),
-        PropTemplate(id: "money.phone", title: "手机", type: .money, category: .money, iconKey: .phone, defaultValue: nil, unit: .cny, caption: "数码消费", shadeIndex: 5),
-        PropTemplate(id: "money.laptop", title: "电脑", type: .money, category: .money, iconKey: .laptop, defaultValue: nil, unit: .cny, caption: "先评估", shadeIndex: 6),
-        PropTemplate(id: "money.jewelry", title: "首饰", type: .money, category: .money, iconKey: .jewelry, defaultValue: nil, unit: .cny, caption: "珠宝首饰", shadeIndex: 7),
-        PropTemplate(id: "money.subscription", title: "会员", type: .money, category: .money, iconKey: .subscription, defaultValue: nil, unit: .cny, caption: "订阅续费", shadeIndex: 8),
-        PropTemplate(id: "money.cosmetics", title: "化妆品", type: .money, category: .money, iconKey: .cosmetics, defaultValue: nil, unit: .cny, caption: "美妆消费", shadeIndex: 9),
-        PropTemplate(id: "money.shoes", title: "鞋子", type: .money, category: .money, iconKey: .shoes, defaultValue: nil, unit: .cny, caption: "穿搭消费", shadeIndex: 10),
-        PropTemplate(id: "money.bag", title: "包", type: .money, category: .money, iconKey: .bag, defaultValue: nil, unit: .cny, caption: "包袋消费", shadeIndex: 11),
-        PropTemplate(id: "money.blindBox", title: "盲盒", type: .money, category: .money, iconKey: .blindBox, defaultValue: nil, unit: .cny, caption: "惊喜消费", shadeIndex: 12),
-        PropTemplate(id: "money.travel", title: "旅行", type: .money, category: .money, iconKey: .travel, defaultValue: nil, unit: .cny, caption: "机酒门票", shadeIndex: 13),
-        PropTemplate(id: "money.course", title: "报课", type: .money, category: .money, iconKey: .course, defaultValue: nil, unit: .cny, caption: "课程消费", shadeIndex: 14)
+        PropTemplate(id: "money.clothes", title: "衣服", type: .money, category: .money, iconKey: .clothes, defaultValue: nil, unit: .cny, caption: "穿搭消费", shadeIndex: 0),
+        PropTemplate(id: "money.cosmetics", title: "护肤彩妆", type: .money, category: .money, iconKey: .cosmetics, defaultValue: nil, unit: .cny, caption: "美妆消费", shadeIndex: 1),
+        PropTemplate(id: "money.shoes", title: "鞋子", type: .money, category: .money, iconKey: .shoes, defaultValue: nil, unit: .cny, caption: "穿搭消费", shadeIndex: 2),
+        PropTemplate(id: "money.bag", title: "包", type: .money, category: .money, iconKey: .bag, defaultValue: nil, unit: .cny, caption: "包袋消费", shadeIndex: 3),
+        PropTemplate(id: "money.gameTopUp", title: "游戏充值", type: .money, category: .money, iconKey: .subscription, defaultValue: nil, unit: .cny, caption: "氪金、皮肤、抽卡", shadeIndex: 4),
+        PropTemplate(id: "money.headphones", title: "耳机", type: .money, category: .money, iconKey: .phone, defaultValue: nil, unit: .cny, caption: "数码消费", shadeIndex: 5),
+        PropTemplate(id: "money.digitalAccessory", title: "数码配件", type: .money, category: .money, iconKey: .phone, defaultValue: nil, unit: .cny, caption: "壳、线、键盘", shadeIndex: 6),
+        PropTemplate(id: "money.blindBox", title: "盲盒", type: .money, category: .money, iconKey: .blindBox, defaultValue: nil, unit: .cny, caption: "惊喜消费", shadeIndex: 7),
+        PropTemplate(id: "money.figure", title: "手办潮玩", type: .money, category: .money, iconKey: .blindBox, defaultValue: nil, unit: .cny, caption: "收藏消费", shadeIndex: 8),
+        PropTemplate(id: "money.subscription", title: "会员", type: .money, category: .money, iconKey: .subscription, defaultValue: nil, unit: .cny, caption: "订阅续费", shadeIndex: 9),
+        PropTemplate(id: "money.liveGift", title: "直播打赏", type: .money, category: .money, iconKey: .subscription, defaultValue: nil, unit: .cny, caption: "礼物打赏", shadeIndex: 10),
+        PropTemplate(id: "money.coffee", title: "咖啡", type: .money, category: .money, iconKey: .misc, defaultValue: nil, unit: .cny, caption: "每天一杯", shadeIndex: 11),
+        PropTemplate(id: "money.taxi", title: "打车", type: .money, category: .money, iconKey: .travel, defaultValue: nil, unit: .cny, caption: "本来可以坐地铁", shadeIndex: 12),
+        PropTemplate(id: "money.homeGoods", title: "家居好物", type: .money, category: .money, iconKey: .misc, defaultValue: nil, unit: .cny, caption: "收纳、小家电", shadeIndex: 13),
+        PropTemplate(id: "money.stockUp", title: "凑单囤货", type: .money, category: .money, iconKey: .misc, defaultValue: nil, unit: .cny, caption: "满减凑单", shadeIndex: 14),
+        PropTemplate(id: "money.ticket", title: "演出门票", type: .money, category: .money, iconKey: .travel, defaultValue: nil, unit: .cny, caption: "演唱会、展览", shadeIndex: 15),
+        PropTemplate(id: "money.book", title: "书", type: .money, category: .money, iconKey: .course, defaultValue: nil, unit: .cny, caption: "买了不一定看", shadeIndex: 16),
+        PropTemplate(id: "money.petGoods", title: "宠物用品", type: .money, category: .money, iconKey: .misc, defaultValue: nil, unit: .cny, caption: "玩具零食", shadeIndex: 17),
+        PropTemplate(id: "money.gymCard", title: "健身卡", type: .money, category: .money, iconKey: .course, defaultValue: nil, unit: .cny, caption: "办卡冲动", shadeIndex: 18),
+        PropTemplate(id: "money.phone", title: "手机", type: .money, category: .money, iconKey: .phone, defaultValue: nil, unit: .cny, caption: "数码消费", shadeIndex: 19),
+        PropTemplate(id: "money.laptop", title: "电脑", type: .money, category: .money, iconKey: .laptop, defaultValue: nil, unit: .cny, caption: "先评估", shadeIndex: 20),
+        PropTemplate(id: "money.camera", title: "相机", type: .money, category: .money, iconKey: .camera, defaultValue: nil, unit: .cny, caption: "愿望存钱", shadeIndex: 21),
+        PropTemplate(id: "money.gamingGear", title: "游戏设备", type: .money, category: .money, iconKey: .gamingGear, defaultValue: nil, unit: .cny, caption: "设备升级", shadeIndex: 22),
+        PropTemplate(id: "money.jewelry", title: "首饰", type: .money, category: .money, iconKey: .jewelry, defaultValue: nil, unit: .cny, caption: "珠宝首饰", shadeIndex: 23),
+        PropTemplate(id: "money.travel", title: "旅行", type: .money, category: .money, iconKey: .travel, defaultValue: nil, unit: .cny, caption: "机酒门票", shadeIndex: 24),
+        PropTemplate(id: "money.course", title: "报课", type: .money, category: .money, iconKey: .course, defaultValue: nil, unit: .cny, caption: "课程消费", shadeIndex: 25),
+        PropTemplate(id: "money.misc", title: "杂物", type: .money, category: .money, iconKey: .misc, defaultValue: nil, unit: .cny, caption: "小物件", shadeIndex: 26),
+        PropTemplate(id: "money.wallet", title: "钱包", type: .money, category: .money, iconKey: .wallet, defaultValue: nil, unit: .cny, caption: "金钱冲动", shadeIndex: 27)
     ]
 
     static func templates(for type: ResistType) -> [PropTemplate] {
         templates.filter { $0.type == type }
+    }
+
+    /// Templates for a type with the ones this user picks most often first.
+    static func templates(for type: ResistType, orderedByUsageIn records: [ResistRecord]) -> [PropTemplate] {
+        var usage: [String: Int] = [:]
+        for record in records where record.type == type {
+            if let id = record.propTemplateId { usage[id, default: 0] += 1 }
+        }
+        return templates(for: type).enumerated().sorted { lhs, rhs in
+            let left = usage[lhs.element.id, default: 0]
+            let right = usage[rhs.element.id, default: 0]
+            return left == right ? lhs.offset < rhs.offset : left > right
+        }.map(\.element)
     }
 
     static func uiTemplates() -> [PropTemplate] {
@@ -226,6 +276,9 @@ struct PropTemplate: Identifiable, Hashable {
     static func matching(type: ResistType, title: String) -> PropTemplate? {
         let normalizedTitle = title.normalizedPropTitle
         let candidates = templates(for: type)
+        if let exact = candidates.first(where: { $0.title.normalizedPropTitle == normalizedTitle }) {
+            return exact
+        }
         return candidates.first { template in
             normalizedTitle.contains(template.title.normalizedPropTitle)
                 || template.title.normalizedPropTitle.contains(normalizedTitle)

@@ -30,17 +30,45 @@ enum AssetPeriod: String, CaseIterable, Identifiable {
     }
 }
 
+extension Calendar {
+    /// The user's calendar with weeks running Monday to Sunday, which is how the app draws a week
+    /// everywhere. Without this, regions that start the week on Sunday would count "this week"
+    /// differently from the Mon–Sun row on screen.
+    static var mondayFirst: Calendar {
+        var calendar = Calendar.current
+        calendar.firstWeekday = 2
+        return calendar
+    }
+}
+
 enum StatsCalculator {
     static func defaultGoalId(for type: ResistType, goals: [Goal]) -> UUID? {
         let matchingGoals = goals.filter { $0.type == type }
         return matchingGoals.count == 1 ? matchingGoals.first?.id : nil
     }
 
+    /// The unfinished goal closest to completion, optionally limited to one type.
+    static func nearestUnfinishedGoal(in goals: [Goal], records: [ResistRecord], type: ResistType? = nil) -> Goal? {
+        goals
+            .filter { type == nil || $0.type == type }
+            .map { ($0, currentValue(for: $0, records: records) / max($0.targetValue, 1)) }
+            .filter { $0.1 < 1 }
+            .max { $0.1 < $1.1 }?
+            .0
+    }
+
+    /// Where a new record lands unless the user picks otherwise: the only goal of its type, or the
+    /// unfinished one closest to completion when there are several.
+    static func suggestedGoalId(for type: ResistType, goals: [Goal], records: [ResistRecord]) -> UUID? {
+        defaultGoalId(for: type, goals: goals)
+            ?? nearestUnfinishedGoal(in: goals, records: records, type: type)?.id
+    }
+
     static func assets(
         from records: [ResistRecord],
         period: AssetPeriod = .all,
         now: Date = .now,
-        calendar: Calendar = .current
+        calendar: Calendar = .mondayFirst
     ) -> AssetSummary {
         let interval = period.interval(at: now, calendar: calendar)
         return records.reduce(into: .empty) { result, record in
@@ -81,64 +109,19 @@ enum StatsCalculator {
         }
     }
 
-    static func resistedToday(in records: [ResistRecord], calendar: Calendar = .current) -> Int {
+    static func resistedToday(in records: [ResistRecord], calendar: Calendar = .mondayFirst) -> Int {
         records.filter { record in
             record.status == .resisted && calendar.isDateInToday(record.createdAt)
         }.count
     }
 
-    static func resistedThisWeek(in records: [ResistRecord], calendar: Calendar = .current) -> [ResistRecord] {
+    static func resistedThisWeek(in records: [ResistRecord], calendar: Calendar = .mondayFirst) -> [ResistRecord] {
         guard let interval = calendar.dateInterval(of: .weekOfYear, for: .now) else { return [] }
         return records.filter { record in
             record.status == .resisted && interval.contains(record.createdAt)
         }
     }
 
-    static func resistedThisMonth(in records: [ResistRecord], calendar: Calendar = .current) -> [ResistRecord] {
-        guard let interval = calendar.dateInterval(of: .month, for: .now) else { return [] }
-        return records.filter { record in
-            record.status == .resisted && interval.contains(record.createdAt)
-        }
-    }
-
-    static func dailyResistedCounts(in records: [ResistRecord], days: Int = 7, calendar: Calendar = .current) -> [Int] {
-        let today = calendar.startOfDay(for: .now)
-        return (0..<days).reversed().map { offset in
-            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { return 0 }
-            return records.filter { record in
-                record.status == .resisted && calendar.isDate(record.createdAt, inSameDayAs: date)
-            }.count
-        }
-    }
-
-    static func currentRecordStreak(in records: [ResistRecord], calendar: Calendar = .current) -> Int {
-        let recordedDays = Set(records.map { calendar.startOfDay(for: $0.createdAt) })
-        var streak = 0
-        var cursor = calendar.startOfDay(for: .now)
-
-        while recordedDays.contains(cursor) {
-            streak += 1
-            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
-            cursor = previous
-        }
-
-        return streak
-    }
-
-    static func mostFrequentResistedTypeThisWeek(in records: [ResistRecord], calendar: Calendar = .current) -> ResistType? {
-        let weekRecords = resistedThisWeek(in: records, calendar: calendar)
-        guard !weekRecords.isEmpty else { return nil }
-
-        let counts = ResistType.allCases.map { type in
-            (type, weekRecords.filter { $0.type == type }.count)
-        }
-        guard let highestCount = counts.map(\.1).max(), highestCount > 0 else {
-            return nil
-        }
-
-        let leaders = counts.filter { $0.1 == highestCount }
-        return leaders.count == 1 ? leaders[0].0 : nil
-    }
 }
 
 extension Double {

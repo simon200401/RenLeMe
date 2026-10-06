@@ -9,6 +9,7 @@ struct GoalsView: View {
     @State private var isAddingGoal = false
     @State private var editingGoal: Goal?
     @State private var completedGoalMoment: MascotMoment?
+    @State private var headerFace: DynamicMascotExpression?
 
     var body: some View {
         ZStack {
@@ -48,7 +49,7 @@ struct GoalsView: View {
                     }
                 }
                 .padding(.horizontal, 18)
-                .padding(.top, 10)
+                .padding(.top, 6)
                 .padding(.bottom, 28)
             }
             .appScrollDefaults()
@@ -58,6 +59,13 @@ struct GoalsView: View {
                     hideGoalCelebration()
                 }
             }
+        }
+        .onAppear {
+            let hasProgress = goals.contains(where: { goalProgress(for: $0) > 0 })
+            headerFace = MascotVariety.next(
+                from: hasProgress ? [.sparkle, .proud, .celebrate, .settled] : [.curious, .hello, .thinking],
+                avoiding: [headerFace]
+            )
         }
         .navigationTitle("目标")
         .navigationBarTitleDisplayMode(.inline)
@@ -97,7 +105,7 @@ struct GoalsView: View {
 
                 AnimatedXiaoRenView(
                     color: Color(red: 1.0, green: 0.949, blue: 0.839),
-                    expression: goals.contains(where: { goalProgress(for: $0) > 0 }) ? .sparkle : .curious,
+                    expression: headerFace ?? .curious,
                     size: 76,
                     reduceMotion: reduceMotion
                 )
@@ -458,17 +466,23 @@ private struct GoalTypePicker: View {
     }
 }
 
-private struct AddGoalView: View {
+struct AddGoalView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
     @State private var title = ""
-    @State private var type: ResistType = .money
+    @State private var type: ResistType
     @State private var targetValue = ""
     @State private var timeUnit: GoalTimeInputUnit = .hour
     @State private var goalImage: UIImage?
     @State private var imageSource: CustomImageSource?
     @State private var saveFailed = false
+    private let onCreate: (Goal) -> Void
+
+    init(initialType: ResistType = .money, onCreate: @escaping (Goal) -> Void = { _ in }) {
+        _type = State(initialValue: initialType)
+        self.onCreate = onCreate
+    }
 
     private var parsedTarget: Double {
         let rawValue = Double(targetValue.replacingOccurrences(of: ",", with: "")) ?? 0
@@ -564,6 +578,7 @@ private struct AddGoalView: View {
 
         do {
             try modelContext.save()
+            onCreate(goal)
             dismiss()
         } catch {
             modelContext.rollback()

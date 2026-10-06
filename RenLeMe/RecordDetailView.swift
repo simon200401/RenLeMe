@@ -132,7 +132,9 @@ struct RecordDetailView: View {
 
                 DetailLine(title: "类型", value: record.type.title)
                 DetailLine(title: "状态", value: record.status.title)
-                DetailLine(title: "原因", value: record.reason)
+                if !record.reason.isEmpty {
+                    DetailLine(title: "原因", value: record.reason)
+                }
                 DetailLine(title: "创建时间", value: fullDateText(record.createdAt))
 
                 if let resolvedAt = record.resolvedAt {

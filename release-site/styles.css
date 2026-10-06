@@ -86,3 +86,24 @@ section {
   .mascot { flex-basis: 64px; width: 64px; height: 64px; font-size: 24px; }
   section { padding: 20px; }
 }
+
+.feedback { display: grid; gap: 8px; margin-top: 14px; }
+.feedback label { margin-top: 8px; font-weight: 800; }
+.feedback input, .feedback select, .feedback textarea {
+  width: 100%;
+  padding: 13px 14px;
+  border: 2px solid rgba(8, 8, 13, .14);
+  border-radius: 14px;
+  color: var(--ink);
+  background: var(--cream);
+  font: inherit;
+}
+.feedback input:focus, .feedback select:focus, .feedback textarea:focus {
+  border-color: var(--ink);
+  outline: none;
+}
+.feedback textarea { resize: vertical; }
+.feedback button { justify-content: center; border: 0; font: inherit; font-weight: 800; cursor: pointer; }
+.feedback .trap { position: absolute; left: -9999px; }
+.note { margin: 14px 0 0; color: var(--muted); font-size: 14px; }
+section p + p { margin-top: 10px; }
