@@ -11,7 +11,7 @@ swiftc -module-cache-path /private/tmp/renleme-motion-cache \
 /private/tmp/renleme-motion-tests
 ```
 
-检查动作边界、手持道具、表情差异、动作结束归位及不循环播放。
+检查 24 个动作的幅度边界、手持道具、动作结束归位及不循环播放，以及三类成功动作、踱步、升级、点头等动作的关键姿势。
 
 ## 目标进度
 
@@ -23,6 +23,6 @@ swiftc -module-cache-path /private/tmp/renleme-goal-cache \
 /private/tmp/renleme-goal-tests
 ```
 
-检查单目标默认关联、多目标不自动分配、三类数值、冷静箱决定、编辑、重新关联及删除后的统计。测试中的颜色定义仅满足道具模板的编译依赖，不影响 App 配色。
+检查单目标默认关联、同类目标一个一个攒和溢出、指定“先攒这个”、三类数值、冷静箱决定、编辑、重新关联及删除后的统计；还检查“我的”页回顾数据的门槛、心动高峰曲线、一起多少天、CSV 导出和冷静时长的文字。测试中的颜色定义仅满足道具模板的编译依赖，不影响 App 配色。
 
 真机权限、键盘、导航、布局和通知交互仍需按 `QA_CHECKLIST.md` 验证。

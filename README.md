@@ -1,17 +1,17 @@
 # 忍了么 RenLeMe
 
-「忍了么」是一款面向冲动消费、饮食控制、时间管理场景的轻量化 iOS App。它帮助用户在“想买、想吃、想刷”的瞬间先记录、再决定，并把忍住后的价值转化成三类可见资产：省下的钱、守住的热量、拿回的时间。
+「忍了么」是一款轻量的冲动管理 iOS App。想买、想吃、想玩的时候，先停 15 秒再决定；忍住的部分变成三类看得见的成果：省下的钱、守住的热量、拿回的时间，并攒向自己设的目标。
 
-当前版本已覆盖首页、记录、目标、我的、历史详情、编辑、冷静箱、新手引导、App 图标与启动页等主流程，正在进行 TestFlight 与 App Store 发布准备。最新审核状态以 App Store Connect 为准。
+2026-10-06 做过一轮以“让人愿意再打开”为目标的改版，页面结构和核心流程都变了，详见 [`HANDOFF.md`](HANDOFF.md)。发布状态见 [`RELEASE_READINESS.md`](RELEASE_READINESS.md)，其中的构建信息早于这轮改版。
 
 ## 快速理解
 
-- 产品定位：低羞耻、强正反馈的反冲动自我管理工具。
-- 核心闭环：选择冲动类型 -> 选择/自选道具 -> 填写数值 -> 做决定 -> 首页资产/目标/复盘更新。
-- 三类场景：金钱、食物、时间。
+- 产品定位：低羞耻、强正反馈；不批评、不催促、不打分。
+- 三个标签：今天、成果、我的。
+- 核心闭环：点想买 / 想吃 / 想玩 -> 选物品 -> 停 15 秒 -> 做决定 -> 忍住后补数值 -> 成果、目标和小忍的等级更新。
 - 三种结果：忍住了、冷静箱、没忍住。
-- 数据策略：SwiftData 本地存储，不做账号、不做云同步、不做联网食物搜索。
-- 视觉方向：高饱和卡通风，奶油底色、绿色/粉色/黄色/蓝色分类、小忍动态角色反馈。
+- 数据策略：SwiftData 本地存储，不做账号、云同步、联网食物搜索；可导出 CSV。
+- 视觉方向：高饱和卡通风，奶油底色，绿 / 粉 / 黄表示三类，米白色的小忍是贯穿全程的角色。
 
 ## 文档入口
 
@@ -29,29 +29,41 @@
 
 ```text
 RenLeMe/
-  RenLeMeApp.swift              App 入口、Tab、启动页/新手引导、种子数据
-  Models.swift                  SwiftData 模型与核心枚举
-  PropTemplates.swift           道具模板系统
-  StatsCalculator.swift         资产、目标、周/月统计计算
-  Components.swift              共享 UI、道具图标、小忍、反馈弹窗、键盘处理
-  MascotMotion.swift            小忍短动作与姿态采样
-  CooldownCoordinator.swift     冷静箱处理与本地通知
-  HomeView.swift                首页资产、目标进度、最近记录
-  RecordFlowView.swift          记录流程、道具选择、自选图片、冷静箱通知
-  GoalsView.swift               目标列表、新增/编辑目标
-  ProfileView.swift             复盘、统计、成就、冷静箱处理、引导入口
+  RenLeMeApp.swift              App 入口、三个 Tab、启动页/新手引导、通知路由、种子数据
+  Models.swift                  SwiftData 模型、核心枚举、设置项（AppSettings）
+  PropTemplates.swift           物品模板（想买 28、想吃 22、想玩 14）
+  StatsCalculator.swift         资产统计、目标分配（GoalLedger）、“正在攒”的目标（GoalFocus）
+  RecordInsights.swift          “我的”页回顾数据、一起多少天、CSV 导出
+  MascotGrowth.swift            小忍的等级
+  WeeklySummary.swift           每周小结通知
+  CooldownCoordinator.swift     冷静箱处理与到期通知
+  HomeView.swift                今天：入口、待决定、目标
+  PauseFlowView.swift           暂停流程：选物品、15 秒、决定、补数值
+  ResultsView.swift             成果：资产、目标、最近记录
+  ProfileView.swift             我的：回顾、里程碑、设置、冷静箱、导出、关于
+  GrowthLadderView.swift        等级面板
+  SlidingPeekMascot.swift       今天页底部随倾斜滑动的小忍
+  RecordFlowView.swift          直接记录（完整表单）
+  GoalsView.swift               全部目标、新增/编辑/删除目标
   HistoryRecordsView.swift      历史筛选列表
-  RecordDetailView.swift        记录详情
+  RecordDetailView.swift        记录详情与冷静箱决定
   EditRecordView.swift          编辑记录
   FoodPickerView.swift          本地食物库搜索与份量计算
   FoodSeedData.swift            本地食物种子库
-  LaunchSplashView.swift        自定义启动过渡页
-  WelcomeOnboardingView.swift   动态小忍新手引导
+  Components.swift              共享 UI、图标、反馈弹窗、气泡、冷静箱操作面板
+  WelcomeOnboardingView.swift   新手引导；小忍的绘制（AnimatedXiaoRenView）和全部表情
+  MascotMotion.swift            小忍的动作
+  MascotAttention.swift         小忍的眼睛跟手指
+  Celebration.swift             彩带
+  LaunchSplashView.swift        启动过渡页
+release-site/                   已部署的帮助与隐私页面（renleme.netlify.app）
+release-site-drafts/            还没启用的反馈表单
+Tests/                          两组独立自动测试
 ```
 
 ## 运行方式
 
-用 Xcode 打开 `RenLeMe.xcodeproj`，选择 iPhone Simulator 运行。当前工程面向 iOS 17+，本地数据使用 SwiftData。
+用 Xcode 打开 `RenLeMe.xcodeproj`，选择 iPhone Simulator 或真机运行。当前工程面向 iOS 17+，只支持 iPhone 竖屏，本地数据使用 SwiftData。倾斜、震动、通知和相机只能在真机上验证。
 
 说明：Debug、Release 与 TestFlight 均不自动插入 Demo 记录或默认目标。干净安装从零记录、零资产和空目标开始，仅保留内置食物库；覆盖安装不会清除已有真实记录。
 
