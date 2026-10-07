@@ -1893,7 +1893,7 @@ struct AssetBlockCard: View {
         Button {
             playReaction()
         } label: {
-            PunchyCard(fill: Color.blockColor(for: type), cornerRadius: 28, padding: subtitle.isEmpty ? 14 : 16) {
+            PunchyCard(fill: Color.blockColor(for: type), cornerRadius: 24, padding: subtitle.isEmpty ? 14 : 16) {
                 VStack(alignment: .leading, spacing: subtitle.isEmpty ? 8 : 12) {
                     HStack(spacing: 6) {
                         Text(type.assetTitle)

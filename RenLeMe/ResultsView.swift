@@ -41,7 +41,7 @@ struct ResultsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    PunchyCard(fill: .cream, cornerRadius: 28, padding: 16) {
+                    PunchyCard(fill: .cream, cornerRadius: 24, padding: 14) {
                         WeekDotRow(completedWeekdays: completedWeekdays, activeColor: .punchBlack)
                     }
                     assetGrid
@@ -108,10 +108,10 @@ struct ResultsView: View {
     }
 
     private var assetGrid: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("我的忍耐资产")
-                .font(.rounded(34, weight: .black))
-                .foregroundStyle(Color.punchBlack)
+                .font(.rounded(22, weight: .black))
+                .foregroundStyle(Color.ink)
 
             Picker("资产时间范围", selection: $assetPeriod) {
                 ForEach(AssetPeriod.allCases) { period in
@@ -213,7 +213,7 @@ struct ResultsView: View {
             }
 
             if recentRecords.isEmpty {
-                PunchyCard(fill: .cardBackground) {
+                PunchyCard(fill: .cardBackground, cornerRadius: 24) {
                     EmptyStateView(title: "还没有记录", message: "", systemImage: "tray")
                 }
             } else {

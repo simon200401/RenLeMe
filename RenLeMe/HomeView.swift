@@ -721,7 +721,7 @@ struct GoalPlaceholderCard: View {
 
     var body: some View {
         Button(action: action) {
-            PunchyCard(fill: .cardBackground, cornerRadius: isCompact ? 24 : 28, padding: isCompact ? 12 : 16) {
+            PunchyCard(fill: .cardBackground, cornerRadius: 24, padding: isCompact ? 12 : 16) {
                 HStack(spacing: isCompact ? 12 : 14) {
                     Image(systemName: "target")
                         .font(.rounded(isCompact ? 18 : 28, weight: .black))
@@ -893,7 +893,9 @@ struct GoalProgressCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            PunchyCard(fill: Color.softBlockColor(for: goal.type), cornerRadius: 28, padding: 16) {
+            // White, like the goal rows on the home screen: colour stays in the icon and the bar, and
+            // the saturated blocks on the results page are left to the three asset cards.
+            PunchyCard(fill: .cardBackground, cornerRadius: 24, padding: 16) {
                 HStack(spacing: 14) {
                     GoalIconView(goal: goal, size: 68)
 
@@ -944,7 +946,7 @@ struct RecordRow: View {
     var body: some View {
         PunchyCard(fill: rowFill, cornerRadius: 24, padding: 12) {
             HStack(spacing: 12) {
-                RecordPropIconView(record: record, size: 48)
+                RecordPropIconView(record: record, size: 42)
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(record.title)
