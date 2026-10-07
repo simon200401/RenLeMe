@@ -56,7 +56,9 @@ RenLeMe/
   WidgetSnapshot.swift          App 和小组件共用的快照（两个 target 都编译）
   WidgetBridge.swift            App 把快照写给小组件
   CooldownActivity.swift        冷静倒计时实时活动的数据和按钮动作（两个 target 都编译）
-  CooldownLiveActivity.swift    App 开始、更新、结束实时活动；全 App 共用的数据库
+  CooldownLiveActivity.swift    App 开始、更新、结束实时活动；全 App 共用的数据库（位置写死）
+  BackupArchive.swift           备份的格式和“只补不改”的恢复
+  CloudBackup.swift             自动备份到用户的 iCloud、恢复询问、备份设置页
   GoalAchievement.swift         目标的收尾卡和“已实现”陈列页
   WelcomeOnboardingView.swift   新手引导；小忍的绘制（AnimatedXiaoRenView）和全部表情
   MascotMotion.swift            小忍的动作

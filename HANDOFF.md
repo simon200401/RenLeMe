@@ -58,6 +58,22 @@
 
 前三种落到同一处：记下是哪一类，根视图直接打开对应的暂停页。还没看完新手引导的人不会被带进去。
 
+### iCloud 备份（`BackupArchive.swift`、`CloudBackup.swift`）
+
+是备份，不是同步：记录、目标、自选照片和两项设置（先攒哪个目标、冷静时长）存成一个文件，放在用户自己的 iCloud 里（App 的 iCloud 云盘容器 `iCloud.com.simonx.renleme`，`Documents/Backup/backup.json` 和 `images/`）。食物库不备份。
+
+- 什么时候写：App 退到后台时，内容和上次不一样才写。空的 App 不写。前一天的备份会留一份 `backup.previous.json`。
+- 什么时候读：启动和回到前台时看一眼。
+- **不会盖掉没见过的备份。** 每份备份有自己的编号，设备记着自己最后写下或接受的那一份。发现 iCloud 里是别处写的（重装之前的、另一台手机的），就弹窗问用户要不要恢复，在用户回答之前不写。
+- 恢复只补上本机没有的记录和目标（按编号），不改也不删已有的；本机原来是空的才带上备份里的设置。恢复后会把合并的结果再备份一次。
+- “我的 → 数据与帮助”里直接有开关“iCloud 自动备份”（默认开，副标题是状态）；下面一行“备份与恢复”进去是上次备份时间、“现在备份”和“从备份恢复”。
+- 没登录 iCloud 或没开 iCloud 云盘时什么都不做，页面上会说明。
+- 调试版可以用启动参数 `-cloudBackupDebugDirectory <目录>` 把备份写到本机目录，模拟器没有 iCloud 账号时用这个验证。
+
+### 数据库放在哪（`AppStore`，在 `CooldownLiveActivity.swift`）
+
+数据库的位置和类型是写死的：App 自己的 `Application Support/default.store`，不走 CloudKit。**不要改回默认配置**——SwiftData 的默认行为会在 App 有了 App 组之后把数据库挪到组目录里（升级后打开是空的），有了 iCloud 权限之后尝试用 CloudKit 同步（现在的模型不兼容，启动就崩）。加小组件到写死位置之间的构建把数据存在了组目录里，启动时会把那里的记录和目标并回来一次（`adoptStrayStoreIfNeeded`）。
+
 ### 小组件（`RenLeMeWidget/`，第二个 target）
 
 - 桌面小号：平时左上是 `Today` 和次数、右下是小忍；冷静箱里有东西时换成最近一件的图标、名称和倒计时，到点后写“到时间了”；23 点到 6 点变深色、小忍睡着。
@@ -213,8 +229,8 @@
 - iOS 17+，SwiftUI，SwiftData，UserNotifications，CoreMotion（只用于首页底部小忍的倾斜）。
 - 只支持 iPhone 竖屏。
 - 工程里有两个 target：`RenLeMe`（App）和 `RenLeMeWidget`（小组件扩展，嵌在 App 里）。App 多了 `RenLeMe/Info.plist`（只放链接地址的登记，其余仍由构建设置生成）和 `RenLeMe/RenLeMe.entitlements`（App 组）。
-- 没有账号、云同步、后端。数据只在本机。
-- 数据模型这轮只加了一个可选字段 `Goal.achievedAt`（收下目标的日期），旧数据升级时为空；没有在模拟器里验证过从旧版本升级，需要在装着旧版的真机上覆盖安装确认。`UserDefaults` 里新增的键：`hapticsEnabled`、`cooldownReminderEnabled`、`weeklySummaryEnabled`、`cooldownSeconds.<type>`、`focusGoalId.<type>`、`goalFocusVersion`、`didDeclineGoalPrompt.<type>`、`renleme.pendingWeeklySummaryRoute`、`foodSeedVersion`（取代原来的 `didSeedFoodNutritionItems`）、`liveActivityEnabled`。旧有的键见 `ITERATION_HANDOFF.md` 第 9 节。
+- 没有账号、实时同步、后端。数据在本机，另有一份备份在用户自己的 iCloud。
+- 数据模型这轮只加了一个可选字段 `Goal.achievedAt`（收下目标的日期），旧数据升级时为空；没有在模拟器里验证过从旧版本升级，需要在装着旧版的真机上覆盖安装确认。`UserDefaults` 里新增的键：`hapticsEnabled`、`cooldownReminderEnabled`、`weeklySummaryEnabled`、`cooldownSeconds.<type>`、`focusGoalId.<type>`、`goalFocusVersion`、`didDeclineGoalPrompt.<type>`、`renleme.pendingWeeklySummaryRoute`、`foodSeedVersion`（取代原来的 `didSeedFoodNutritionItems`）、`liveActivityEnabled`、`cloudBackupEnabled`、`cloudBackupAcceptedId`、`cloudBackupFingerprint`、`cloudBackupLastDate`、`didAdoptGroupContainerStore`。旧有的键见 `ITERATION_HANDOFF.md` 第 9 节。
 
 ## 验证
 
@@ -228,6 +244,7 @@
 ## 还没做的
 
 - 帮助站的反馈表单：页面写好了放在 `release-site-drafts/feedback-form.html`，站点后台没有开表单接收，所以线上用的是 GitHub 和邮件入口。
+- iCloud 备份在模拟器里用本机目录代替 iCloud 走通了：退到后台写出备份、卸载重装后弹窗询问、恢复后记录回来。真正的 iCloud（容器开通、新手机上文件下载要等多久、没登录时的表现）没有验证过。
 - 实时活动在模拟器里走通过一遍：放进冷静箱后岛上出现小忍和倒计时，长按展开，点“我忍住了”后活动结束、记录变成忍住。锁屏横幅、到点后的样子、App 被彻底关掉后点按钮，都没有验证过。
 - 小组件没有在真机上验证过：模拟器里确认了编译、嵌入、App 组里写入了快照、链接能打开对应页面，界面是把同一份视图代码放进 App 里渲染截图看的；真正加到桌面和锁屏、定时刷新、深夜切换都要真机确认。
 - 数字滚动和记录详情的放大转场只在模拟器里编译和静态截图过，手感需要在真机上确认（转场要 iOS 18 以上）。

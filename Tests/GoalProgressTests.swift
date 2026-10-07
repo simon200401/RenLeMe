@@ -138,7 +138,45 @@ struct GoalProgressTests {
         context.delete(cooling)
         try context.save()
         expect(try value(money) == 0, "Deleting a record removes its contribution")
-        print("PASS: goal ledger and shelf, three value types, saved records, cooling resolution, edits, reassignment, and deletion")
+        // A backup carries everything across, and taking one in only ever adds.
+        let archive = BackupArchive(
+            records: try context.fetch(FetchDescriptor<ResistRecord>()), goals: try context.fetch(FetchDescriptor<Goal>()),
+            settings: .init(focusGoalIds: [:], cooldownSeconds: ["food": 1200]), deviceName: "测试"
+        )
+        let copy = try BackupArchive.decode(try archive.encoded())
+        expect(copy.records.count == archive.records.count && copy.goals.count == archive.goals.count && copy.id == archive.id,
+               "A backup reads back as it was written")
+        expect(copy.fingerprint == archive.fingerprint, "The same contents have the same fingerprint")
+        let fresh = try ModelContainer(
+            for: Goal.self, ResistRecord.self, FoodNutritionItem.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let defaults = UserDefaults(suiteName: "backup-test-\(UUID().uuidString)")!
+        let first = try copy.merge(into: fresh.mainContext, defaults: defaults)
+        expect(first.records == archive.records.count && first.goals == archive.goals.count,
+               "Onto an empty device everything is restored")
+        expect(defaults.double(forKey: AppSettings.cooldownKey(for: .food)) == 1200,
+               "An empty device takes the backup's settings")
+        let again = try copy.merge(into: fresh.mainContext, defaults: defaults)
+        expect(again == .init(records: 0, goals: 0), "Restoring twice adds nothing the second time")
+        let restoredGoal = try fresh.mainContext.fetch(FetchDescriptor<Goal>()).first { $0.id == money.id }
+        let restoredValue = StatsCalculator.currentValue(
+            for: restoredGoal!, records: try fresh.mainContext.fetch(FetchDescriptor<ResistRecord>())
+        )
+        expect(try restoredValue == value(money), "A restored goal has the progress it had")
+        let extra = record(.money, value: 5)
+        context.insert(extra)
+        let later = BackupArchive(
+            records: try context.fetch(FetchDescriptor<ResistRecord>()), goals: try context.fetch(FetchDescriptor<Goal>()),
+            settings: .init(focusGoalIds: [:], cooldownSeconds: ["food": 300]), deviceName: "测试"
+        )
+        expect(later.fingerprint != archive.fingerprint, "A new record changes the fingerprint")
+        let third = try later.merge(into: fresh.mainContext, defaults: defaults)
+        expect(third == .init(records: 1, goals: 0) && defaults.double(forKey: AppSettings.cooldownKey(for: .food)) == 1200,
+               "Merging into a device with data adds what is missing and leaves its settings alone")
+        context.delete(extra)
+
+        print("PASS: goal ledger and shelf, backup and restore, three value types, saved records, cooling resolution, edits, reassignment, and deletion")
     }
 
     private static func record(

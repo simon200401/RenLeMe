@@ -5,13 +5,52 @@ import SwiftData
 /// The app's one database, shared by the screens and by whatever runs without them (a button on the
 /// Live Activity can wake the app in the background).
 enum AppStore {
+    private static let schema = Schema([ResistRecord.self, Goal.self, FoodNutritionItem.self])
+
+    /// Where the database has always been: the app's own Application Support folder.
+    private static var storeURL: URL {
+        URL.applicationSupportDirectory.appending(path: "default.store")
+    }
+
+    /// The location and the kind of store are spelled out, because left to its defaults SwiftData
+    /// changes both behind the app's back as soon as the app gains certain entitlements: with an app
+    /// group it moves the database into the group's folder (an update would open onto an empty app),
+    /// and with iCloud it tries to sync through CloudKit, which these models are not built for.
     static let container: ModelContainer = {
+        // On a brand-new install the folder does not exist yet.
+        try? FileManager.default.createDirectory(at: .applicationSupportDirectory, withIntermediateDirectories: true)
         do {
-            return try ModelContainer(for: ResistRecord.self, Goal.self, FoodNutritionItem.self)
+            let configuration = ModelConfiguration(schema: schema, url: storeURL, cloudKitDatabase: .none)
+            return try ModelContainer(for: schema, configurations: configuration)
         } catch {
             fatalError("Could not open the database: \(error)")
         }
     }()
+
+    private static let adoptedKey = "didAdoptGroupContainerStore"
+
+    /// Builds made between the widget being added and the location being pinned kept their data in the
+    /// app group's folder. Anything saved there is brought over once; the stray file is left alone.
+    @MainActor
+    static func adoptStrayStoreIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: adoptedKey) else { return }
+        defer { UserDefaults.standard.set(true, forKey: adoptedKey) }
+
+        guard let group = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: WidgetShared.groupId)
+        else { return }
+        let strayURL = group.appending(path: "Library/Application Support/default.store")
+        guard FileManager.default.fileExists(atPath: strayURL.path) else { return }
+
+        let configuration = ModelConfiguration("stray", schema: schema, url: strayURL, allowsSave: false, cloudKitDatabase: .none)
+        guard let stray = try? ModelContainer(for: schema, configurations: configuration),
+              let records = try? stray.mainContext.fetch(FetchDescriptor<ResistRecord>()),
+              let goals = try? stray.mainContext.fetch(FetchDescriptor<Goal>())
+        else { return }
+
+        let archive = BackupArchive(records: records, goals: goals, settings: .current(), deviceName: "")
+        guard !archive.isEmpty else { return }
+        _ = try? archive.merge(into: container.mainContext)
+    }
 }
 
 /// Keeps a Live Activity going for the most recent short cooldown: 小忍 and a countdown in the Dynamic

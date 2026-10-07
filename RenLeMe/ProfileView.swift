@@ -9,6 +9,7 @@ struct ProfileView: View {
     @AppStorage(WeeklySummaryScheduler.enabledKey) private var weeklySummaryEnabled = false
     @AppStorage(AppSettings.cooldownReminderKey) private var cooldownReminderEnabled = true
     @AppStorage(AppSettings.liveActivityKey) private var liveActivityEnabled = true
+    @ObservedObject private var cloudBackup = CloudBackup.shared
     @AppStorage(AppSettings.hapticsKey) private var hapticsEnabled = true
     @State private var isShowingGrowth = false
     @State private var isShowingDataPrivacy = false
@@ -450,6 +451,31 @@ struct ProfileView: View {
 
     private var dataGroup: some View {
         SettingsGroup {
+            // The switch is here, on the page itself; what the backup holds and restoring are one step in.
+            SettingRow(symbol: "icloud.fill", tint: Color.softBlockColor(for: .time), title: "iCloud 自动备份", subtitle: cloudBackup.statusText) {
+                Toggle("iCloud 自动备份", isOn: Binding(
+                    get: { cloudBackup.isEnabled },
+                    set: { enabled in Task { await cloudBackup.setEnabled(enabled) } }
+                ))
+                .labelsHidden()
+                .tint(Color.punchGreen)
+                .accessibilityIdentifier("cloudBackupToggle")
+            }
+
+            SettingDivider()
+
+            NavigationLink {
+                CloudBackupView()
+            } label: {
+                SettingRow(symbol: "arrow.clockwise.icloud.fill", tint: Color.softBlockColor(for: .money), title: "备份与恢复") {
+                    chevron
+                }
+            }
+            .buttonStyle(PressableScaleStyle())
+            .accessibilityIdentifier("cloudBackupRow")
+
+            SettingDivider()
+
             Button(action: exportRecords) {
                 SettingRow(symbol: "square.and.arrow.up.fill", tint: Color.softBlockColor(for: .money), title: "导出记录", subtitle: "\(records.count) 条，表格文件") {
                     chevron
@@ -1142,8 +1168,8 @@ private struct DataPrivacyView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     privacyBlock(
                         icon: "iphone.gen3",
-                        title: "数据保存在本机",
-                        text: "记录、目标、自选图片和食物数据不会上传到服务器。删除 App 可能同时删除这些数据；可以在“我的”页导出一份记录。",
+                        title: "数据在本机和你的 iCloud",
+                        text: "记录、目标和自选图片保存在这台手机上。打开“iCloud 自动备份”时，会另存一份到你自己的 iCloud，用来在重装或换手机后恢复；这份备份我们看不到，可以在“我的”页随时关掉。我们没有服务器，不收集这些数据。",
                         fill: .punchGreen
                     )
                     privacyBlock(

@@ -116,6 +116,7 @@ struct AppRootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(WeeklySummaryScheduler.enabledKey) private var weeklySummaryEnabled = false
     @AppStorage(AppSettings.liveActivityKey) private var liveActivityEnabled = true
+    @ObservedObject private var cloudBackup = CloudBackup.shared
     @State private var pauseType: ResistType?
     @State private var isPresentingRecord = false
     @State private var isShowingWelcomeOnboarding = false
@@ -200,6 +201,7 @@ struct AppRootView: View {
             }
         }
         .task {
+            AppStore.adoptStrayStoreIfNeeded()
             removeLegacyDefaultGoalsIfNeeded()
             seedFoodNutritionItemsIfNeeded()
             routePendingCooldownIfNeeded()
@@ -207,6 +209,25 @@ struct AppRootView: View {
             routePendingPauseIfNeeded()
             rescheduleWeeklySummary()
             MascotAttention.shared.install()
+            await cloudBackup.refresh()
+        }
+        // A backup from a previous install or another phone: ask before doing anything with it.
+        .alert(
+            "在 iCloud 里找到一份备份",
+            isPresented: Binding(
+                get: { cloudBackup.foreign != nil && !isShowingLaunchSplash && !isShowingWelcomeOnboarding },
+                set: { _ in }
+            ),
+            presenting: cloudBackup.foreign
+        ) { archive in
+            Button("恢复") {
+                Task { await cloudBackup.restore(archive) }
+            }
+            Button("不用", role: .cancel) {
+                cloudBackup.decline(archive)
+            }
+        } message: { archive in
+            Text("\(CloudBackup.dateText(archive.createdAt))，来自“\(archive.deviceName)”，\(archive.records.count) 条记录、\(archive.goals.count) 个目标。恢复只会补上这台手机没有的，不会改动已有的。选“不用”的话，之后这台手机的数据会替换掉这份备份。")
         }
         .onReceive(NotificationCenter.default.publisher(for: .openPause)) { _ in
             routePendingPauseIfNeeded()
@@ -242,7 +263,12 @@ struct AppRootView: View {
             rescheduleWeeklySummary()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { rescheduleWeeklySummary() }
+            if phase == .active {
+                rescheduleWeeklySummary()
+                Task { await cloudBackup.refresh() }
+            } else if phase == .background {
+                Task { await cloudBackup.backUp() }
+            }
         }
         .onChange(of: selectedTab) { _, _ in
             UIApplication.shared.dismissKeyboard()
