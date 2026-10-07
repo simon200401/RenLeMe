@@ -378,8 +378,6 @@ enum DynamicMascotExpression: Equatable {
         switch moment {
         case .idle:
             self = .hello
-        case .choosing:
-            self = .thinking
         case .resistedSuccess:
             self = .celebrate
         case .coolingSaved:
@@ -390,12 +388,6 @@ enum DynamicMascotExpression: Equatable {
             self = .lookAway
         case .observingRecord:
             self = .observe
-        case .assetPositive(let type):
-            self = type == .food ? .relieved : .sparkle
-        case .goalProgress(let progress, _):
-            self = progress > 0 ? .proud : .curious
-        case .reviewCalm:
-            self = .relieved
         }
     }
 }

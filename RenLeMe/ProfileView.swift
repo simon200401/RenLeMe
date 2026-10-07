@@ -8,6 +8,7 @@ struct ProfileView: View {
     @Query(sort: \Goal.createdAt, order: .forward) private var goals: [Goal]
     @AppStorage(WeeklySummaryScheduler.enabledKey) private var weeklySummaryEnabled = false
     @AppStorage(AppSettings.cooldownReminderKey) private var cooldownReminderEnabled = true
+    @AppStorage(AppSettings.liveActivityKey) private var liveActivityEnabled = true
     @AppStorage(AppSettings.hapticsKey) private var hapticsEnabled = true
     @State private var isShowingGrowth = false
     @State private var isShowingDataPrivacy = false
@@ -17,6 +18,8 @@ struct ProfileView: View {
     @State private var heroFace: DynamicMascotExpression?
     /// Bumped when a cooldown length changes, so the settings row re-reads it.
     @State private var cooldownLengthToken = 0
+    /// The hour under the finger while the day curve is being dragged across; nil shows the peak.
+    @State private var scrubbedHour: Int?
     var onShowWelcome: () -> Void = {}
 
     private var growth: MascotGrowth {
@@ -218,26 +221,47 @@ struct ProfileView: View {
     @ViewBuilder
     private var peakTimeCard: some View {
         if let peak = insights.peakTime {
+            // Dragging across the curve reads off any part of the day; letting go returns to the peak.
+            let block = (scrubbedHour ?? peak.peakHour) / 3
+            let count = peak.counts[block]
+
             PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 18) {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("心动高峰")
+                        Text(scrubbedHour == nil ? "心动高峰" : "这个时段")
                             .font(.rounded(14, weight: .black))
                             .foregroundStyle(Color.secondaryInk)
 
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(peak.periodName)
+                            Text(RecordInsights.PeakTime.periodName(forBlock: block))
                                 .font(.rounded(32, weight: .black))
                                 .foregroundStyle(Color.punchBlack)
-                            Text(peak.hourRange)
+                            Text(RecordInsights.PeakTime.hourRange(forBlock: block))
                                 .font(.rounded(17, weight: .black))
                                 .foregroundStyle(Color.secondaryInk)
+
+                            Spacer(minLength: 8)
+
+                            Text("\(count) 次")
+                                .font(.rounded(22, weight: .black))
+                                .foregroundStyle(Color.punchBlack)
+                                .contentTransition(.numericText())
                         }
+                        .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: block)
                     }
 
                     VStack(spacing: 8) {
-                        DayCurve(values: peak.curve, peakHour: peak.peakHour)
+                        DayCurve(values: peak.curve, markerHour: scrubbedHour ?? peak.peakHour, isScrubbing: scrubbedHour != nil)
                             .frame(height: 124)
+                            .overlay {
+                                HorizontalScrubber { fraction in
+                                    let hour = fraction.map { min(max(Int($0 * 24), 0), 23) }
+                                    if let hour, hour / 3 != (scrubbedHour ?? -3) / 3 {
+                                        AppHaptics.lightTap()
+                                    }
+                                    scrubbedHour = hour
+                                }
+                            }
 
                         HStack {
                             ForEach(["凌晨", "早上", "中午", "傍晚", "深夜"], id: \.self) { label in
@@ -249,7 +273,13 @@ struct ProfileView: View {
                         }
                     }
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("一天的起伏曲线，心动高峰在\(peak.peakTitle)")
+                    .accessibilityLabel("一天的起伏曲线，心动高峰在\(peak.peakTitle)，\(peak.counts[peak.peakIndex]) 次。左右滑动可以看其他时段")
+                    .accessibilityAdjustableAction { direction in
+                        let current = (scrubbedHour ?? peak.peakHour) / 3
+                        let next = direction == .increment ? min(current + 1, 7) : max(current - 1, 0)
+                        scrubbedHour = next * 3 + 1
+                    }
+                    .accessibilityValue("\(RecordInsights.PeakTime.periodName(forBlock: block)) \(RecordInsights.PeakTime.hourRange(forBlock: block))，\(count) 次")
                 }
             }
             .accessibilityIdentifier("peakTimeCard")
@@ -366,6 +396,15 @@ struct ProfileView: View {
                 .labelsHidden()
                 .tint(Color.punchGreen)
                 .accessibilityIdentifier("cooldownReminderToggle")
+            }
+
+            SettingDivider()
+
+            SettingRow(symbol: "timer", tint: Color.softBlockColor(for: .money), title: "锁屏和灵动岛倒计时", subtitle: "8 小时以内的冷静") {
+                Toggle("锁屏和灵动岛倒计时", isOn: $liveActivityEnabled)
+                    .labelsHidden()
+                    .tint(Color.punchGreen)
+                    .accessibilityIdentifier("liveActivityToggle")
             }
 
             SettingDivider()
@@ -532,9 +571,13 @@ private struct ActivityView: UIViewControllerRepresentable {
 
 /// The day drawn as one soft line over a yellow wash, with a ring on its highest point.
 private struct DayCurve: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// 24 values in 0...1, midnight first.
     let values: [Double]
-    let peakHour: Int
+    /// Where the marker stands: the peak, or the hour under the finger.
+    let markerHour: Int
+    /// While a finger is on it the line runs the full height, so it shows even where the curve is flat.
+    var isScrubbing = false
 
     private static let topInset: CGFloat = 12
     private static let baseInset: CGFloat = 3
@@ -544,7 +587,7 @@ private struct DayCurve: View {
             let size = geometry.size
             let points = points(in: size)
             let line = line(through: points)
-            let peak = point(forHour: peakHour, in: size)
+            let peak = point(forHour: markerHour, in: size)
             let base = size.height - Self.baseInset
 
             ZStack {
@@ -557,11 +600,11 @@ private struct DayCurve: View {
                 }
                 .fill(Color.softBlockColor(for: .time))
 
-                Path { path in
-                    path.move(to: CGPoint(x: peak.x, y: peak.y))
-                    path.addLine(to: CGPoint(x: peak.x, y: base))
-                }
-                .stroke(Color.punchBlack, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [3, 5]))
+                // A view rather than a path, so it glides with the marker instead of jumping.
+                VerticalDash()
+                    .stroke(Color.punchBlack, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [3, 5]))
+                    .frame(width: 2, height: max(base - lineTop(above: peak), 0))
+                    .position(x: peak.x, y: (lineTop(above: peak) + base) / 2)
 
                 line
                     .stroke(Color.punchBlack, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
@@ -573,7 +616,13 @@ private struct DayCurve: View {
                     .position(peak)
             }
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: markerHour)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: isScrubbing)
         }
+    }
+
+    private func lineTop(above marker: CGPoint) -> CGFloat {
+        isScrubbing ? 0 : marker.y
     }
 
     private func point(forHour hour: Int, in size: CGSize) -> CGPoint {
@@ -608,6 +657,81 @@ private struct DayCurve: View {
                     control2: CGPoint(x: to.x - (next.x - from.x) / 6, y: to.y - (next.y - from.y) / 6)
                 )
             }
+        }
+    }
+}
+
+private struct VerticalDash: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        return path
+    }
+}
+
+/// Reports where a finger is across its width, 0 to 1, and nil shortly after it lifts. It only takes
+/// over when the finger moves sideways, so dragging up or down across it still scrolls the page; a
+/// tap counts too.
+private struct HorizontalScrubber: UIViewRepresentable {
+    var onChange: (CGFloat?) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onChange: onChange)
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .clear
+        let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
+        pan.delegate = context.coordinator
+        view.addGestureRecognizer(pan)
+        view.addGestureRecognizer(UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:))))
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.onChange = onChange
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var onChange: (CGFloat?) -> Void
+        private var release: DispatchWorkItem?
+
+        init(onChange: @escaping (CGFloat?) -> Void) {
+            self.onChange = onChange
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+            let velocity = pan.velocity(in: pan.view)
+            return abs(velocity.x) > abs(velocity.y)
+        }
+
+        @objc func handlePan(_ pan: UIPanGestureRecognizer) {
+            report(pan)
+            if pan.state == .ended || pan.state == .cancelled || pan.state == .failed {
+                letGo(after: 1.2)
+            }
+        }
+
+        @objc func handleTap(_ tap: UITapGestureRecognizer) {
+            report(tap)
+            letGo(after: 2)
+        }
+
+        private func report(_ recognizer: UIGestureRecognizer) {
+            guard let view = recognizer.view, view.bounds.width > 0 else { return }
+            release?.cancel()
+            onChange(min(max(recognizer.location(in: view).x / view.bounds.width, 0), 1))
+        }
+
+        /// The reading lingers for a moment after the finger lifts, then the card goes back to the peak.
+        private func letGo(after delay: TimeInterval) {
+            release?.cancel()
+            let item = DispatchWorkItem { [weak self] in self?.onChange(nil) }
+            release = item
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
         }
     }
 }

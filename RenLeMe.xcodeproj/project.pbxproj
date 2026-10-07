@@ -36,6 +36,8 @@
 		A10000000000000000000029 /* MascotAttention.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000029 /* MascotAttention.swift */; };
 		A10000000000000000000030 /* SlidingPeekMascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000030 /* SlidingPeekMascot.swift */; };
 		A10000000000000000000031 /* RecordInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* RecordInsights.swift */; };
+		A10000000000000000000039 /* CooldownActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000039 /* CooldownActivity.swift */; };
+		A10000000000000000000040 /* CooldownLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* CooldownLiveActivity.swift */; };
 		A10000000000000000000035 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000035 /* WidgetSnapshot.swift */; };
 		A10000000000000000000036 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000036 /* WidgetBridge.swift */; };
 		A10000000000000000000034 /* QuickEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* QuickEntry.swift */; };
@@ -44,6 +46,8 @@
 		A10000000000000000000023 /* PauseFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* PauseFlowView.swift */; };
 		B10000000000000000000001 /* RenLeMeWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* RenLeMeWidget.swift */; };
 		B10000000000000000000002 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000035 /* WidgetSnapshot.swift */; };
+		B10000000000000000000006 /* CooldownActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000039 /* CooldownActivity.swift */; };
+		B10000000000000000000007 /* CooldownActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000007 /* CooldownActivityWidget.swift */; };
 		B10000000000000000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* Assets.xcassets */; };
 		B10000000000000000000004 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* PrivacyInfo.xcprivacy */; };
 		B10000000000000000000005 /* RenLeMeWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B20000000000000000000009 /* RenLeMeWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -104,6 +108,8 @@
 		A20000000000000000000029 /* MascotAttention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MascotAttention.swift; sourceTree = "<group>"; };
 		A20000000000000000000030 /* SlidingPeekMascot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlidingPeekMascot.swift; sourceTree = "<group>"; };
 		A20000000000000000000031 /* RecordInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordInsights.swift; sourceTree = "<group>"; };
+		A20000000000000000000039 /* CooldownActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CooldownActivity.swift; sourceTree = "<group>"; };
+		A20000000000000000000040 /* CooldownLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CooldownLiveActivity.swift; sourceTree = "<group>"; };
 		A20000000000000000000035 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		A20000000000000000000036 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
 		A20000000000000000000034 /* QuickEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickEntry.swift; sourceTree = "<group>"; };
@@ -113,6 +119,7 @@
 		A20000000000000000000037 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000038 /* RenLeMe.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RenLeMe.entitlements; sourceTree = "<group>"; };
 		B20000000000000000000001 /* RenLeMeWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenLeMeWidget.swift; sourceTree = "<group>"; };
+		B20000000000000000000007 /* CooldownActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CooldownActivityWidget.swift; sourceTree = "<group>"; };
 		B20000000000000000000003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B20000000000000000000004 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B20000000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -172,6 +179,8 @@
 				A20000000000000000000029 /* MascotAttention.swift */,
 				A20000000000000000000030 /* SlidingPeekMascot.swift */,
 				A20000000000000000000031 /* RecordInsights.swift */,
+				A20000000000000000000039 /* CooldownActivity.swift */,
+				A20000000000000000000040 /* CooldownLiveActivity.swift */,
 				A20000000000000000000035 /* WidgetSnapshot.swift */,
 				A20000000000000000000036 /* WidgetBridge.swift */,
 				A20000000000000000000034 /* QuickEntry.swift */,
@@ -204,6 +213,7 @@
 			isa = PBXGroup;
 			children = (
 				B20000000000000000000001 /* RenLeMeWidget.swift */,
+				B20000000000000000000007 /* CooldownActivityWidget.swift */,
 				B20000000000000000000003 /* Assets.xcassets */,
 				B20000000000000000000004 /* PrivacyInfo.xcprivacy */,
 				B20000000000000000000005 /* Info.plist */,
@@ -334,6 +344,8 @@
 				A10000000000000000000029 /* MascotAttention.swift in Sources */,
 				A10000000000000000000030 /* SlidingPeekMascot.swift in Sources */,
 				A10000000000000000000031 /* RecordInsights.swift in Sources */,
+				A10000000000000000000039 /* CooldownActivity.swift in Sources */,
+				A10000000000000000000040 /* CooldownLiveActivity.swift in Sources */,
 				A10000000000000000000035 /* WidgetSnapshot.swift in Sources */,
 				A10000000000000000000036 /* WidgetBridge.swift in Sources */,
 				A10000000000000000000034 /* QuickEntry.swift in Sources */,
@@ -357,6 +369,8 @@
 			files = (
 				B10000000000000000000001 /* RenLeMeWidget.swift in Sources */,
 				B10000000000000000000002 /* WidgetSnapshot.swift in Sources */,
+				B10000000000000000000006 /* CooldownActivity.swift in Sources */,
+				B10000000000000000000007 /* CooldownActivityWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -506,6 +520,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄自选道具图片，帮助你记录想忍住的冲动。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于从相册选择自选道具图片，帮助你记录想忍住的冲动。";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSUserNotificationsUsageDescription = "用于在冷静时间结束后提醒你重新决定。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -538,6 +553,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄自选道具图片，帮助你记录想忍住的冲动。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于从相册选择自选道具图片，帮助你记录想忍住的冲动。";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSUserNotificationsUsageDescription = "用于在冷静时间结束后提醒你重新决定。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

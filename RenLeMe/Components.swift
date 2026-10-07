@@ -15,22 +15,16 @@ enum MascotMood: Equatable {
 
 enum MascotMoment: Equatable {
     case idle
-    case choosing(ResistType)
     case resistedSuccess
     case coolingSaved
     case gaveInSaved
     case observingRecord
     case coolingRecord
-    case assetPositive(ResistType)
-    case goalProgress(progress: Double, type: ResistType)
-    case reviewCalm
 
     var color: Color {
         switch self {
-        case .idle, .resistedSuccess, .reviewCalm:
+        case .idle, .resistedSuccess:
             .punchGreen
-        case .choosing(let type), .assetPositive(let type), .goalProgress(_, let type):
-            type.v2MascotColor
         case .coolingSaved, .coolingRecord:
             .punchYellow
         case .gaveInSaved, .observingRecord:
@@ -42,8 +36,6 @@ enum MascotMoment: Equatable {
         switch self {
         case .idle:
             .steady
-        case .choosing:
-            .struggle
         case .resistedSuccess:
             .proud
         case .coolingSaved, .coolingRecord:
@@ -52,12 +44,6 @@ enum MascotMoment: Equatable {
             .steady
         case .observingRecord:
             .observe
-        case .assetPositive(let type):
-            type == .food ? .relieved : .proud
-        case .goalProgress(let progress, _):
-            progress > 0 ? .proud : .steady
-        case .reviewCalm:
-            .relieved
         }
     }
 

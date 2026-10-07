@@ -98,6 +98,7 @@ enum ResistType: String, CaseIterable, Identifiable, Codable {
 enum AppSettings {
     static let hapticsKey = "hapticsEnabled"
     static let cooldownReminderKey = "cooldownReminderEnabled"
+    static let liveActivityKey = "liveActivityEnabled"
 
     /// Any length from a minute to thirty days can be set by hand.
     static let cooldownRange: ClosedRange<TimeInterval> = 60...(30 * 24 * 60 * 60)
@@ -106,13 +107,17 @@ enum AppSettings {
         "cooldownSeconds.\(type.rawValue)"
     }
 
-    /// Both switches are on until the user turns them off.
+    /// These switches are on until the user turns them off.
     static var hapticsEnabled: Bool {
         UserDefaults.standard.object(forKey: hapticsKey) as? Bool ?? true
     }
 
     static var cooldownReminderEnabled: Bool {
         UserDefaults.standard.object(forKey: cooldownReminderKey) as? Bool ?? true
+    }
+
+    static var liveActivityEnabled: Bool {
+        UserDefaults.standard.object(forKey: liveActivityKey) as? Bool ?? true
     }
 
     static func durationText(_ seconds: TimeInterval) -> String {

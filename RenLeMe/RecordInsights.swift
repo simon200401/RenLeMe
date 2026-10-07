@@ -6,8 +6,6 @@ struct RecordInsights {
     struct PeakTime {
         /// Urges per three-hour block, midnight first.
         let counts: [Int]
-        /// The same blocks split by kind of urge.
-        let typeCounts: [[ResistType: Int]]
         /// Urges per hour of the day, midnight first.
         let hourCounts: [Int]
         let peakIndex: Int
@@ -33,12 +31,17 @@ struct RecordInsights {
             return (peakIndex * 3..<peakIndex * 3 + 3).max { curve[$0] < curve[$1] } ?? peakIndex * 3
         }
 
-        var periodName: String {
-            ["凌晨", "凌晨", "早上", "上午", "中午", "下午", "晚上", "夜里"][peakIndex]
+        var periodName: String { Self.periodName(forBlock: peakIndex) }
+
+        var hourRange: String { Self.hourRange(forBlock: peakIndex) }
+
+        /// The three-hour blocks, by what people call them.
+        static func periodName(forBlock block: Int) -> String {
+            ["凌晨", "凌晨", "早上", "上午", "中午", "下午", "晚上", "夜里"][block]
         }
 
-        var hourRange: String {
-            ["0–3 点", "3–6 点", "6–9 点", "9–12 点", "12–3 点", "3–6 点", "6–9 点", "9–12 点"][peakIndex]
+        static func hourRange(forBlock block: Int) -> String {
+            ["0–3 点", "3–6 点", "6–9 点", "9–12 点", "12–3 点", "3–6 点", "6–9 点", "9–12 点"][block]
         }
 
         var peakTitle: String {
@@ -57,17 +60,15 @@ struct RecordInsights {
 
         if records.count >= Self.peakTimeMinimum {
             var counts = Array(repeating: 0, count: 8)
-            var typeCounts = Array(repeating: [ResistType: Int](), count: 8)
             var hourCounts = Array(repeating: 0, count: 24)
             for record in records {
                 let hour = calendar.component(.hour, from: record.createdAt)
                 let block = hour / 3
                 hourCounts[hour] += 1
                 counts[block] += 1
-                typeCounts[block][record.type, default: 0] += 1
             }
             let peak = counts.indices.max { counts[$0] < counts[$1] } ?? 0
-            peakTime = PeakTime(counts: counts, typeCounts: typeCounts, hourCounts: hourCounts, peakIndex: peak)
+            peakTime = PeakTime(counts: counts, hourCounts: hourCounts, peakIndex: peak)
         } else {
             peakTime = nil
         }

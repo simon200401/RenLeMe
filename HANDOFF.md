@@ -70,6 +70,18 @@
 
 版本号和构建号两个 target 要保持一致，否则提交会被拒。
 
+### 锁屏和灵动岛的冷静倒计时（实时活动）
+
+把东西放进冷静箱后，锁屏上出现一条横幅，带灵动岛的机型上岛里出现小忍和倒计时；长按展开能看到物品名和两个按钮“我忍住了 / 我还是做了”，不用打开 App 就能决定。到点后文字变成“到时间了 / 还想要吗”。
+
+- 收起状态故意不显示物品名，免得冷静的十分钟里一直提醒用户想着它。
+- 系统最长只让它存在 8 小时，所以只给 8 小时以内的冷静开（想吃、想玩的默认时长，或用户自己设短的）；想买默认 24 小时没有。
+- 同时只开一个，给最近放进去的那一件。
+- 只能在 App 在前台时开始；App 每次回到前台、冷静箱有变化时对一遍（`CooldownLiveActivity.reconcile`）。
+- 按钮是一个系统在 App 进程里执行的动作（`CooldownDecisionIntent`，`CooldownActivity.swift`，两个 target 都编译），App 没开着也会被后台唤起。所以数据库改成了全 App 共用的一个 `AppStore.container`。
+- “我的”页提醒里有开关“锁屏和灵动岛倒计时”，默认开。
+- 界面在 `RenLeMeWidget/CooldownActivityWidget.swift`。
+
 ### 二级页面
 
 历史、记录详情、全部目标、新建和编辑目标、编辑记录。这些页面没有顶部横幅，标题只在导航栏里；“全部目标”用的是和成果页相同的白色目标卡片（`GoalProgressCard`）；记录详情的信息是分割线列表，样式同“我的”页的设置行。
@@ -119,6 +131,10 @@
 收下后 `Goal.achievedAt` 记下日期，目标从首页、成果页、全部目标页和各处的目标选择里消失（`[Goal].active`），进入“已实现”陈列页（`[Goal].achieved`）。入口有两处，都是同一行“已实现 · N”：成果页“资产去向”的目标下面，和“我的”页里程碑下面；一个都没有时不显示。陈列页点开能回看收尾卡，里面可以“放回目标里”。
 
 账目上，收下的目标仍然参与 `GoalLedger` 的计算：它已有的数额不变，超出的部分照旧流向同类的下一个目标，但新记录不会再投向它。
+
+### 心动高峰的曲线
+
+“我的”页回顾里的曲线可以左右拖：竖线和圆点跟着手指走，卡片上方换成那个时段的名字和次数（按 3 小时一段数），松手一会儿后回到高峰。点一下也行。上下拖仍然是滚动页面（`HorizontalScrubber` 只在手指横着动时才接手）。
 
 ### 小忍的等级（`MascotGrowth.swift`）
 
@@ -198,7 +214,7 @@
 - 只支持 iPhone 竖屏。
 - 工程里有两个 target：`RenLeMe`（App）和 `RenLeMeWidget`（小组件扩展，嵌在 App 里）。App 多了 `RenLeMe/Info.plist`（只放链接地址的登记，其余仍由构建设置生成）和 `RenLeMe/RenLeMe.entitlements`（App 组）。
 - 没有账号、云同步、后端。数据只在本机。
-- 数据模型这轮只加了一个可选字段 `Goal.achievedAt`（收下目标的日期），旧数据升级时为空；没有在模拟器里验证过从旧版本升级，需要在装着旧版的真机上覆盖安装确认。`UserDefaults` 里新增的键：`hapticsEnabled`、`cooldownReminderEnabled`、`weeklySummaryEnabled`、`cooldownSeconds.<type>`、`focusGoalId.<type>`、`goalFocusVersion`、`didDeclineGoalPrompt.<type>`、`renleme.pendingWeeklySummaryRoute`、`foodSeedVersion`（取代原来的 `didSeedFoodNutritionItems`）。旧有的键见 `ITERATION_HANDOFF.md` 第 9 节。
+- 数据模型这轮只加了一个可选字段 `Goal.achievedAt`（收下目标的日期），旧数据升级时为空；没有在模拟器里验证过从旧版本升级，需要在装着旧版的真机上覆盖安装确认。`UserDefaults` 里新增的键：`hapticsEnabled`、`cooldownReminderEnabled`、`weeklySummaryEnabled`、`cooldownSeconds.<type>`、`focusGoalId.<type>`、`goalFocusVersion`、`didDeclineGoalPrompt.<type>`、`renleme.pendingWeeklySummaryRoute`、`foodSeedVersion`（取代原来的 `didSeedFoodNutritionItems`）、`liveActivityEnabled`。旧有的键见 `ITERATION_HANDOFF.md` 第 9 节。
 
 ## 验证
 
@@ -212,6 +228,7 @@
 ## 还没做的
 
 - 帮助站的反馈表单：页面写好了放在 `release-site-drafts/feedback-form.html`，站点后台没有开表单接收，所以线上用的是 GitHub 和邮件入口。
+- 实时活动在模拟器里走通过一遍：放进冷静箱后岛上出现小忍和倒计时，长按展开，点“我忍住了”后活动结束、记录变成忍住。锁屏横幅、到点后的样子、App 被彻底关掉后点按钮，都没有验证过。
 - 小组件没有在真机上验证过：模拟器里确认了编译、嵌入、App 组里写入了快照、链接能打开对应页面，界面是把同一份视图代码放进 App 里渲染截图看的；真正加到桌面和锁屏、定时刷新、深夜切换都要真机确认。
 - 数字滚动和记录详情的放大转场只在模拟器里编译和静态截图过，手感需要在真机上确认（转场要 iOS 18 以上）。
 - 食物库里中国表的数字来自第三方对原书的转录，没有对着纸质书核过；每条的份量是估的常见值。

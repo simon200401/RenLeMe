@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         QuickEntry.installShortcutItems()
+        CooldownLiveActivity.install()
         return true
     }
 
@@ -99,7 +100,7 @@ struct RenLeMeApp: App {
         WindowGroup {
             AppRootView()
         }
-        .modelContainer(for: [ResistRecord.self, Goal.self, FoodNutritionItem.self])
+        .modelContainer(AppStore.container)
     }
 }
 
@@ -114,6 +115,7 @@ struct AppRootView: View {
     @State private var selectedTab: AppTab = .home
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(WeeklySummaryScheduler.enabledKey) private var weeklySummaryEnabled = false
+    @AppStorage(AppSettings.liveActivityKey) private var liveActivityEnabled = true
     @State private var pauseType: ResistType?
     @State private var isPresentingRecord = false
     @State private var isShowingWelcomeOnboarding = false
@@ -219,6 +221,10 @@ struct AppRootView: View {
         .onChange(of: widgetSnapshot, initial: true) { _, snapshot in
             WidgetBridge.publish(snapshot)
         }
+        .task(id: liveActivityTrigger) {
+            guard scenePhase == .active else { return }
+            await CooldownLiveActivity.reconcile(with: records)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .openCooldownRecord)) { notification in
             guard let rawId = notification.object as? String, let id = UUID(uuidString: rawId) else { return }
             routeToCooldownRecord(id: id)
@@ -241,6 +247,16 @@ struct AppRootView: View {
         .onChange(of: selectedTab) { _, _ in
             UIApplication.shared.dismissKeyboard()
         }
+    }
+
+    /// Changes whenever the cooldown box, the switch, or being in front does.
+    private var liveActivityTrigger: String {
+        let waiting = records
+            .filter { $0.status == .pending }
+            .map { "\($0.id.uuidString)@\($0.cooldownUntil?.timeIntervalSinceReferenceDate ?? 0)" }
+            .sorted()
+            .joined(separator: ",")
+        return "\(liveActivityEnabled)|\(scenePhase == .active)|\(waiting)"
     }
 
     private var widgetSnapshot: WidgetSnapshot {

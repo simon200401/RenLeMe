@@ -12,6 +12,7 @@ struct RenLeMeWidgets: WidgetBundle {
         TodayWidget()
         PauseEntryWidget()
         CooldownWidget()
+        CooldownActivityWidget()
     }
 }
 

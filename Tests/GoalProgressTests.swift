@@ -92,10 +92,6 @@ struct GoalProgressTests {
             expect((peak.peakIndex * 3..<peak.peakIndex * 3 + 3).contains(peak.peakHour),
                    "The marker sits inside the block named in the title")
         }
-        let byType = insights.peakTime?.typeCounts.reduce(into: [ResistType: Int]()) { total, block in
-            for (type, count) in block { total[type, default: 0] += count }
-        }
-        expect(byType?[.money] == 5 && byType?[.food] == 1, "Time-of-day blocks keep the kind of urge")
         expect(RecordInsights.daysTogether(records: []) == 0 && RecordInsights.daysTogether(records: [linked]) == 1,
                "The first day together is day one")
         expect(RecordInsights.csv(records: [linked], goals: goals).contains("旅行"), "Export names the linked goal")
