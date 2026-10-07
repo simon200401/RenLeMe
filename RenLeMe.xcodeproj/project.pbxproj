@@ -36,8 +36,42 @@
 		A10000000000000000000029 /* MascotAttention.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000029 /* MascotAttention.swift */; };
 		A10000000000000000000030 /* SlidingPeekMascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000030 /* SlidingPeekMascot.swift */; };
 		A10000000000000000000031 /* RecordInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* RecordInsights.swift */; };
+		A10000000000000000000035 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000035 /* WidgetSnapshot.swift */; };
+		A10000000000000000000036 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000036 /* WidgetBridge.swift */; };
+		A10000000000000000000034 /* QuickEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* QuickEntry.swift */; };
+		A10000000000000000000033 /* GoalAchievement.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000033 /* GoalAchievement.swift */; };
+		A10000000000000000000032 /* PropGlyphs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* PropGlyphs.swift */; };
 		A10000000000000000000023 /* PauseFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* PauseFlowView.swift */; };
+		B10000000000000000000001 /* RenLeMeWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* RenLeMeWidget.swift */; };
+		B10000000000000000000002 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000035 /* WidgetSnapshot.swift */; };
+		B10000000000000000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* Assets.xcassets */; };
+		B10000000000000000000004 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* PrivacyInfo.xcprivacy */; };
+		B10000000000000000000005 /* RenLeMeWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B20000000000000000000009 /* RenLeMeWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B60000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A60000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B50000000000000000000001;
+			remoteInfo = RenLeMeWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B70000000000000000000003 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B10000000000000000000005 /* RenLeMeWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A20000000000000000000001 /* RenLeMeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenLeMeApp.swift; sourceTree = "<group>"; };
@@ -70,11 +104,31 @@
 		A20000000000000000000029 /* MascotAttention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MascotAttention.swift; sourceTree = "<group>"; };
 		A20000000000000000000030 /* SlidingPeekMascot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlidingPeekMascot.swift; sourceTree = "<group>"; };
 		A20000000000000000000031 /* RecordInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordInsights.swift; sourceTree = "<group>"; };
+		A20000000000000000000035 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
+		A20000000000000000000036 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
+		A20000000000000000000034 /* QuickEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickEntry.swift; sourceTree = "<group>"; };
+		A20000000000000000000033 /* GoalAchievement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalAchievement.swift; sourceTree = "<group>"; };
+		A20000000000000000000032 /* PropGlyphs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropGlyphs.swift; sourceTree = "<group>"; };
 		A20000000000000000000023 /* PauseFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PauseFlowView.swift; sourceTree = "<group>"; };
+		A20000000000000000000037 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A20000000000000000000038 /* RenLeMe.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RenLeMe.entitlements; sourceTree = "<group>"; };
+		B20000000000000000000001 /* RenLeMeWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenLeMeWidget.swift; sourceTree = "<group>"; };
+		B20000000000000000000003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B20000000000000000000004 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B20000000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B20000000000000000000006 /* RenLeMeWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RenLeMeWidget.entitlements; sourceTree = "<group>"; };
+		B20000000000000000000009 /* RenLeMeWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RenLeMeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A30000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B30000000000000000000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -88,6 +142,7 @@
 			isa = PBXGroup;
 			children = (
 				A40000000000000000000002 /* RenLeMe */,
+				B40000000000000000000001 /* RenLeMeWidget */,
 				A40000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -117,11 +172,18 @@
 				A20000000000000000000029 /* MascotAttention.swift */,
 				A20000000000000000000030 /* SlidingPeekMascot.swift */,
 				A20000000000000000000031 /* RecordInsights.swift */,
+				A20000000000000000000035 /* WidgetSnapshot.swift */,
+				A20000000000000000000036 /* WidgetBridge.swift */,
+				A20000000000000000000034 /* QuickEntry.swift */,
+				A20000000000000000000033 /* GoalAchievement.swift */,
+				A20000000000000000000032 /* PropGlyphs.swift */,
 				A20000000000000000000023 /* PauseFlowView.swift */,
 				A20000000000000000000018 /* LaunchSplashView.swift */,
 				A20000000000000000000020 /* CooldownCoordinator.swift */,
 				A20000000000000000000021 /* PrivacyInfo.xcprivacy */,
 				A20000000000000000000019 /* LaunchScreen.storyboard */,
+				A20000000000000000000037 /* Info.plist */,
+				A20000000000000000000038 /* RenLeMe.entitlements */,
 				A20000000000000000000011 /* FoodPickerView.swift */,
 				A20000000000000000000007 /* GoalsView.swift */,
 				A20000000000000000000008 /* ProfileView.swift */,
@@ -133,8 +195,21 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000009 /* RenLeMe.app */,
+				B20000000000000000000009 /* RenLeMeWidget.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B40000000000000000000001 /* RenLeMeWidget */ = {
+			isa = PBXGroup;
+			children = (
+				B20000000000000000000001 /* RenLeMeWidget.swift */,
+				B20000000000000000000003 /* Assets.xcassets */,
+				B20000000000000000000004 /* PrivacyInfo.xcprivacy */,
+				B20000000000000000000005 /* Info.plist */,
+				B20000000000000000000006 /* RenLeMeWidget.entitlements */,
+			);
+			path = RenLeMeWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -147,15 +222,34 @@
 				A70000000000000000000001 /* Sources */,
 				A30000000000000000000001 /* Frameworks */,
 				A70000000000000000000002 /* Resources */,
+				B70000000000000000000003 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B60000000000000000000002 /* PBXTargetDependency */,
 			);
 			name = RenLeMe;
 			productName = RenLeMe;
 			productReference = A20000000000000000000009 /* RenLeMe.app */;
 			productType = "com.apple.product-type.application";
+		};
+		B50000000000000000000001 /* RenLeMeWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B90000000000000000000001 /* Build configuration list for PBXNativeTarget "RenLeMeWidget" */;
+			buildPhases = (
+				B70000000000000000000001 /* Sources */,
+				B30000000000000000000001 /* Frameworks */,
+				B70000000000000000000002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RenLeMeWidget;
+			productName = RenLeMeWidget;
+			productReference = B20000000000000000000009 /* RenLeMeWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -168,6 +262,9 @@
 				LastUpgradeCheck = 2640;
 				TargetAttributes = {
 					A50000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					B50000000000000000000001 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -187,6 +284,7 @@
 			projectRoot = "";
 			targets = (
 				A50000000000000000000001 /* RenLeMe */,
+				B50000000000000000000001 /* RenLeMeWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -199,6 +297,15 @@
 				A10000000000000000000016 /* Assets.xcassets in Resources */,
 				A10000000000000000000019 /* LaunchScreen.storyboard in Resources */,
 				A10000000000000000000021 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B70000000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000000000000000000003 /* Assets.xcassets in Resources */,
+				B10000000000000000000004 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -227,6 +334,11 @@
 				A10000000000000000000029 /* MascotAttention.swift in Sources */,
 				A10000000000000000000030 /* SlidingPeekMascot.swift in Sources */,
 				A10000000000000000000031 /* RecordInsights.swift in Sources */,
+				A10000000000000000000035 /* WidgetSnapshot.swift in Sources */,
+				A10000000000000000000036 /* WidgetBridge.swift in Sources */,
+				A10000000000000000000034 /* QuickEntry.swift in Sources */,
+				A10000000000000000000033 /* GoalAchievement.swift in Sources */,
+				A10000000000000000000032 /* PropGlyphs.swift in Sources */,
 				A10000000000000000000023 /* PauseFlowView.swift in Sources */,
 				A10000000000000000000018 /* LaunchSplashView.swift in Sources */,
 				A10000000000000000000020 /* CooldownCoordinator.swift in Sources */,
@@ -239,7 +351,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B70000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000000000000000000001 /* RenLeMeWidget.swift in Sources */,
+				B10000000000000000000002 /* WidgetSnapshot.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B60000000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B50000000000000000000001 /* RenLeMeWidget */;
+			targetProxy = B60000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A80000000000000000000001 /* Debug */ = {
@@ -365,11 +494,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = RenLeMe/RenLeMe.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 37D28864BV;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RenLeMe/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "忍了么";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
@@ -396,10 +527,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = RenLeMe/RenLeMe.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 37D28864BV;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RenLeMe/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "忍了么";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
@@ -416,6 +549,60 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		B80000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = RenLeMeWidget/RenLeMeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = 37D28864BV;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RenLeMeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "忍了么";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.simonx.renleme.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		B80000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = RenLeMeWidget/RenLeMeWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = 37D28864BV;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RenLeMeWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "忍了么";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.simonx.renleme.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -439,6 +626,15 @@
 			buildConfigurations = (
 				A80000000000000000000003 /* Debug */,
 				A80000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B90000000000000000000001 /* Build configuration list for PBXNativeTarget "RenLeMeWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B80000000000000000000001 /* Debug */,
+				B80000000000000000000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

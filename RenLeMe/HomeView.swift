@@ -10,7 +10,8 @@ struct HomeView: View {
     /// The kind of urge a new goal is being made for, while the sheet is up.
     @State private var addingGoalType: ResistType?
     @State private var isShowingGrowth = false
-    @State private var openedPending: ResistRecord?
+    @State private var openedRecord: ResistRecord?
+    @Namespace private var detailZoom
     @State private var heroFace: DynamicMascotExpression?
     @State private var heroEntered = false
     @State private var overrideFace: DynamicMascotExpression?
@@ -55,7 +56,7 @@ struct HomeView: View {
 
     /// A new goal starts on a kind of urge that has none yet, when there is one.
     private var nextGoalType: ResistType {
-        ResistType.allCases.first { type in !goals.contains { $0.type == type } } ?? .money
+        ResistType.allCases.first { type in !goals.active.contains { $0.type == type } } ?? .money
     }
 
     private var growth: MascotGrowth {
@@ -222,8 +223,9 @@ struct HomeView: View {
         }
         .onDisappear { mascotReaction = nil }
         .onAppear(perform: refreshFaces)
-        .navigationDestination(item: $openedPending) { record in
+        .navigationDestination(item: $openedRecord) { record in
             RecordDetailView(record: record)
+                .zoomDestination(id: record.id, in: detailZoom)
         }
         .sheet(isPresented: $isShowingGrowth) {
             GrowthLadderView(growth: growth)
@@ -306,35 +308,40 @@ struct HomeView: View {
 
     private var statusRow: some View {
         HStack(alignment: .center) {
-            // The whole status block opens the level ladder, not just the small chip.
-            Button {
-                AppHaptics.lightTap()
-                isShowingGrowth = true
-            } label: {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Today: \(todayCount) 次")
-                        .font(.rounded(30, weight: .black))
-                        .foregroundStyle(Color.punchBlack)
-                        .contentTransition(.numericText())
-                        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.6), value: todayCount)
+            VStack(alignment: .leading, spacing: 8) {
+                // The whole status block opens the level ladder, not just the small chip.
+                Button {
+                    AppHaptics.lightTap()
+                    isShowingGrowth = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Settled(value: todayCount) { count in
+                            Text("Today: \(count) 次")
+                                .font(.rounded(30, weight: .black))
+                                .foregroundStyle(Color.punchBlack)
+                                .contentTransition(.numericText())
+                        }
 
-                    HStack(spacing: 8) {
-                        StatusChip(title: "Lv.\(growth.level) \(growth.stage.title)", fill: .punchBlack)
+                        HStack(spacing: 8) {
+                            StatusChip(title: "Lv.\(growth.level) \(growth.stage.title)", fill: .punchBlack)
 
-                        if let remaining = growth.remainingToNextStage {
-                            Text("再忍 \(remaining) 次")
-                                .font(.rounded(13, weight: .black))
-                                .foregroundStyle(Color.secondaryInk)
+                            if let remaining = growth.remainingToNextStage {
+                                Text("再忍 \(remaining) 次")
+                                    .font(.rounded(13, weight: .black))
+                                    .foregroundStyle(Color.secondaryInk)
+                            }
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+                .buttonStyle(PressableScaleStyle())
+                .accessibilityElement(children: .combine)
+                .accessibilityHint("查看小忍的等级")
+                .accessibilityIdentifier("mascotGrowthRow")
+
+                todayStrip
             }
-            .buttonStyle(PressableScaleStyle())
-            .accessibilityElement(children: .combine)
-            .accessibilityHint("查看小忍的等级")
-            .accessibilityIdentifier("mascotGrowthRow")
 
             Button(action: greetMascot) {
                 AnimatedXiaoRenView(
@@ -526,10 +533,52 @@ struct HomeView: View {
             }
     }
 
+    /// Resisted today, most recent first.
+    private var todayResisted: [ResistRecord] {
+        records
+            .filter { $0.status == .resisted && Calendar.mondayFirst.isDateInToday($0.resolvedAt ?? $0.createdAt) }
+            .sorted { ($0.resolvedAt ?? $0.createdAt) > ($1.resolvedAt ?? $1.createdAt) }
+    }
+
+    private static let todayIconLimit = 6
+
+    /// What "Today: N 次" is made of: the things themselves, one more each time, right under the
+    /// number. Each opens its record.
+    @ViewBuilder
+    private var todayStrip: some View {
+        let resisted = todayResisted
+        if !resisted.isEmpty {
+            HStack(spacing: 6) {
+                ForEach(resisted.prefix(Self.todayIconLimit)) { record in
+                    Button {
+                        AppHaptics.lightTap()
+                        openedRecord = record
+                    } label: {
+                        RecordPropIconView(record: record, size: 32)
+                            .zoomSource(id: record.id, in: detailZoom)
+                            // Small picture, finger-sized target.
+                            .padding(.vertical, 6)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PressableScaleStyle())
+                    .accessibilityLabel("今天忍住的\(record.title)")
+                }
+
+                if resisted.count > Self.todayIconLimit {
+                    Text("+\(resisted.count - Self.todayIconLimit)")
+                        .font(.rounded(13, weight: .black))
+                        .foregroundStyle(Color.secondaryInk)
+                }
+            }
+            .padding(.vertical, -6)
+            .accessibilityIdentifier("homeTodayResisted")
+        }
+    }
+
     @ViewBuilder
     private var pendingSection: some View {
         if !pendingRecords.isEmpty {
-            PendingStack(records: pendingRecords, opened: $openedPending)
+            PendingStack(records: pendingRecords, opened: $openedRecord, zoom: detailZoom)
         }
     }
 
@@ -544,7 +593,7 @@ struct HomeView: View {
 
                 Spacer()
 
-                if !goals.isEmpty {
+                if !goals.active.isEmpty {
                     Button {
                         AppHaptics.lightTap()
                         addingGoalType = nextGoalType
@@ -562,7 +611,7 @@ struct HomeView: View {
                 }
             }
 
-            if goals.isEmpty {
+            if goals.active.isEmpty {
                 GoalPlaceholderCard(isCompact: true) {
                     addingGoalType = nextGoalType
                 }
@@ -585,6 +634,7 @@ private struct PendingStack: View {
     /// Owned by the home screen: this section disappears when the last record is decided, and a
     /// destination declared in here would take the open detail page with it.
     @Binding var opened: ResistRecord?
+    let zoom: Namespace.ID
 
     @State private var isExpanded = false
 
@@ -692,6 +742,7 @@ private struct PendingStack: View {
                 // Covered cards show only their edge, so their contents step back.
                 .opacity(isCovered ? 0 : 1)
             }
+            .zoomSource(id: record.id, in: zoom)
         }
         .buttonStyle(PlainButtonStyle())
         // A shade darker with each layer, so edges read even when the colours match.
@@ -799,8 +850,9 @@ struct HomeGoalList: View {
     /// Closest to done first; finished ones last.
     private var rows: [Row] {
         _ = focusVersion
+        // Shelved goals stay in the sums but not in the list.
         let ledger = GoalLedger(goals: goals, records: records)
-        return goals.map { goal in
+        return goals.active.map { goal in
             Row(goal: goal, progress: ledger.progress(of: goal), remaining: ledger.remaining(for: goal))
         }
         .sorted { lhs, rhs in
@@ -827,32 +879,35 @@ struct HomeGoalList: View {
                     HStack(spacing: 12) {
                         GoalIconView(goal: row.goal, size: 38)
 
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(spacing: 8) {
-                                Text(row.goal.title)
-                                    .font(.rounded(15, weight: .black))
-                                    .foregroundStyle(Color.ink)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.78)
+                        Settled(value: GoalProgressState(progress: row.progress, remaining: row.remaining)) { state in
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack(spacing: 8) {
+                                    Text(row.goal.title)
+                                        .font(.rounded(15, weight: .black))
+                                        .foregroundStyle(Color.ink)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.78)
 
-                                Spacer(minLength: 4)
+                                    Spacer(minLength: 4)
 
-                                Text(row.remaining > 0 ? "还差 \(row.remaining.displayValue(for: row.goal.type))" : "已完成")
-                                    .font(.rounded(12, weight: .black))
-                                    .foregroundStyle(Color.secondaryInk)
-                                    .fixedSize()
-                            }
-
-                            Capsule()
-                                .fill(Color.punchBlack.opacity(0.1))
-                                .frame(height: 7)
-                                .overlay(alignment: .leading) {
-                                    GeometryReader { geometry in
-                                        Capsule()
-                                            .fill(Color.blockColor(for: row.goal.type))
-                                            .frame(width: max(7, geometry.size.width * min(max(row.progress, 0), 1)))
-                                    }
+                                    Text(state.remaining > 0 ? "还差 \(state.remaining.displayValue(for: row.goal.type))" : "已完成")
+                                        .font(.rounded(12, weight: .black))
+                                        .foregroundStyle(Color.secondaryInk)
+                                        .fixedSize()
+                                        .contentTransition(.numericText())
                                 }
+
+                                Capsule()
+                                    .fill(Color.punchBlack.opacity(0.1))
+                                    .frame(height: 7)
+                                    .overlay(alignment: .leading) {
+                                        GeometryReader { geometry in
+                                            Capsule()
+                                                .fill(Color.blockColor(for: row.goal.type))
+                                                .frame(width: max(7, geometry.size.width * min(max(state.progress, 0), 1)))
+                                        }
+                                    }
+                            }
                         }
                     }
                     .padding(.horizontal, 12)
@@ -896,15 +951,13 @@ struct GoalProgressCard: View {
     let ledger: GoalLedger
     var onTap: () -> Void = {}
 
-    private var progress: Double {
-        ledger.progress(of: goal)
-    }
-
-    private var remaining: Double {
-        ledger.remaining(for: goal)
+    private var state: GoalProgressState {
+        GoalProgressState(progress: ledger.progress(of: goal), remaining: ledger.remaining(for: goal))
     }
 
     var body: some View {
+        let isFocus = ledger.isFocus(goal)
+
         Button(action: onTap) {
             // White, like the goal rows on the home screen: colour stays in the icon and the bar, and
             // the saturated blocks on the results page are left to the three asset cards.
@@ -912,37 +965,49 @@ struct GoalProgressCard: View {
                 HStack(spacing: 14) {
                     GoalIconView(goal: goal, size: 68)
 
-                    VStack(alignment: .leading, spacing: 9) {
-                        HStack(spacing: 10) {
-                            Text(goal.title)
-                                .font(.rounded(18, weight: .black))
-                                .foregroundStyle(Color.ink)
+                    Settled(value: state) { state in
+                        VStack(alignment: .leading, spacing: 9) {
+                            HStack(spacing: 10) {
+                                Text(goal.title)
+                                    .font(.rounded(18, weight: .black))
+                                    .foregroundStyle(Color.ink)
+                                    .lineLimit(2)
+                                    .minimumScaleFactor(0.78)
+
+                                Spacer()
+
+                                StatusChip(title: "\(state.percent)%", fill: .punchBlack)
+                                    .contentTransition(.numericText())
+                            }
+
+                            ProgressLine(progress: state.progress, tint: Color.blockColor(for: goal.type))
+
+                            Text(
+                                state.remaining > 0
+                                    ? "\(isFocus ? "正在攒 · " : "")还差 \(state.remaining.displayValue(for: goal.type))"
+                                    : "已完成，点一下收下"
+                            )
+                                .font(.rounded(13, weight: .bold))
+                                .foregroundStyle(Color.secondaryInk)
                                 .lineLimit(2)
-                                .minimumScaleFactor(0.78)
-
-                            Spacer()
-
-                            StatusChip(title: "\(Int(min(progress, 1) * 100))%", fill: .punchBlack)
+                                .minimumScaleFactor(0.82)
+                                .contentTransition(.numericText())
                         }
-
-                        ProgressLine(progress: progress, tint: Color.blockColor(for: goal.type))
-
-                        Text(
-                            remaining > 0
-                                ? "\(ledger.isFocus(goal) ? "正在攒 · " : "")还差 \(remaining.displayValue(for: goal.type))"
-                                : "已经完成，点一下庆祝。"
-                        )
-                            .font(.rounded(13, weight: .bold))
-                            .foregroundStyle(Color.secondaryInk)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.82)
                     }
                 }
             }
         }
         .buttonStyle(PressableScaleStyle())
-        .accessibilityLabel("\(goal.title)，进度 \(Int(min(progress, 1) * 100))%\(remaining > 0 ? "" : "，已完成")")
+        .accessibilityLabel("\(goal.title)，进度 \(state.percent)%\(state.remaining > 0 ? "" : "，已完成")")
     }
+}
+
+/// What a goal's bar and numbers show; one value so they all move together.
+struct GoalProgressState: Equatable {
+    var progress: Double
+    var remaining: Double
+
+    var percent: Int { Int(min(progress, 1) * 100) }
 }
 
 struct RecordRow: View {

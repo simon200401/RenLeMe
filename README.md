@@ -43,7 +43,7 @@ RenLeMe/
   ProfileView.swift             我的：回顾、里程碑、设置、冷静箱、导出、关于
   GrowthLadderView.swift        等级面板
   SlidingPeekMascot.swift       今天页底部随倾斜滑动的小忍
-  RecordFlowView.swift          直接记录（完整表单）
+  RecordFlowView.swift          直接记录
   GoalsView.swift               全部目标、新增/编辑/删除目标
   HistoryRecordsView.swift      历史筛选列表
   RecordDetailView.swift        记录详情与冷静箱决定
@@ -51,6 +51,11 @@ RenLeMe/
   FoodPickerView.swift          本地食物库搜索与份量计算
   FoodSeedData.swift            本地食物种子库
   Components.swift              共享 UI、图标、反馈弹窗、气泡、冷静箱操作面板
+  PropGlyphs.swift              第二批物品图标
+  QuickEntry.swift              App 外的入口：图标长按菜单、Siri 和快捷指令、链接
+  WidgetSnapshot.swift          App 和小组件共用的快照（两个 target 都编译）
+  WidgetBridge.swift            App 把快照写给小组件
+  GoalAchievement.swift         目标的收尾卡和“已实现”陈列页
   WelcomeOnboardingView.swift   新手引导；小忍的绘制（AnimatedXiaoRenView）和全部表情
   MascotMotion.swift            小忍的动作
   MascotAttention.swift         小忍的眼睛跟手指

@@ -46,58 +46,14 @@ struct RecordInsights {
         }
     }
 
-    struct TypeRate: Identifiable {
-        let type: ResistType
-        let resisted: Int
-        let decided: Int
-
-        var id: String { type.rawValue }
-        var rate: Double { decided > 0 ? Double(resisted) / Double(decided) : 0 }
-    }
-
-    struct CooldownEffect {
-        let resisted: Int
-        let decided: Int
-
-        var rate: Double { Double(resisted) / Double(decided) }
-    }
-
     static let peakTimeMinimum = 5
-    static let typeRateMinimum = 3
-    static let cooldownMinimum = 2
 
     /// Every urge counts here, whatever came of it.
     let urgeCount: Int
-    /// Urges that ended one way or the other.
-    let decidedCount: Int
-    /// Decided urges that went through the cooldown box first.
-    let cooledCount: Int
-
-    struct TopItem {
-        let title: String
-        let count: Int
-    }
-
-    /// The thing wanted most often, once something has come up more than once.
-    let topItem: TopItem?
     let peakTime: PeakTime?
-    let typeRates: [TypeRate]?
-    let cooldownEffect: CooldownEffect?
 
     init(records: [ResistRecord], calendar: Calendar = .current) {
         urgeCount = records.count
-        let decided = records.filter { $0.status != .pending }
-        decidedCount = decided.count
-        let cooled = decided.filter(\.enteredCooldown)
-        cooledCount = cooled.count
-
-        let titleCounts = Dictionary(grouping: records, by: \.title).mapValues(\.count)
-        // Ties go to the title that sorts first, so the answer does not flicker between launches.
-        if let top = titleCounts.max(by: { ($0.value, $1.key) < ($1.value, $0.key) }), top.value >= 2 {
-            topItem = TopItem(title: top.key, count: top.value)
-        } else {
-            topItem = nil
-        }
 
         if records.count >= Self.peakTimeMinimum {
             var counts = Array(repeating: 0, count: 8)
@@ -114,21 +70,6 @@ struct RecordInsights {
             peakTime = PeakTime(counts: counts, typeCounts: typeCounts, hourCounts: hourCounts, peakIndex: peak)
         } else {
             peakTime = nil
-        }
-
-        if decided.count >= Self.typeRateMinimum {
-            typeRates = ResistType.allCases.map { type in
-                let ofType = decided.filter { $0.type == type }
-                return TypeRate(type: type, resisted: ofType.filter { $0.status == .resisted }.count, decided: ofType.count)
-            }
-        } else {
-            typeRates = nil
-        }
-
-        if cooled.count >= Self.cooldownMinimum {
-            cooldownEffect = CooldownEffect(resisted: cooled.filter { $0.status == .resisted }.count, decided: cooled.count)
-        } else {
-            cooldownEffect = nil
         }
     }
 

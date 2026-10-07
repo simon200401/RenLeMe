@@ -27,9 +27,14 @@ struct RecordDetailView: View {
                         cooldownDecisionCard
                     }
                     detailsCard
-                    noteCard
+                    if !record.note.isEmpty {
+                        noteCard
+                    }
+                    deleteButton
                 }
-                .padding(18)
+                .padding(.horizontal, 18)
+                .padding(.top, 6)
+                .padding(.bottom, 28)
             }
             .appScrollDefaults()
 
@@ -124,14 +129,9 @@ struct RecordDetailView: View {
     }
 
     private var detailsCard: some View {
-        PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 16) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("记录线索")
-                    .font(.rounded(22, weight: .black))
-                    .foregroundStyle(Color.ink)
-
-                DetailLine(title: "类型", value: record.type.title)
-                DetailLine(title: "状态", value: record.status.title)
+        PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                DetailLine(title: "类型", value: record.type.urgeTitle, isFirst: true)
                 if !record.reason.isEmpty {
                     DetailLine(title: "原因", value: record.reason)
                 }
@@ -150,37 +150,42 @@ struct RecordDetailView: View {
                         DetailLine(title: "份量", value: "\(grams.cleanString)g")
                     }
                     if let energy = record.foodEnergyKcalPer100g {
-                        DetailLine(title: "数据库热量", value: "\(energy.cleanString) kcal / 100g")
+                        DetailLine(title: "每 100g", value: "\(energy.cleanString) kcal")
                     }
                     if let source = record.foodSourceName {
-                        DetailLine(title: "来源", value: source)
+                        DetailLine(title: "来源", value: FoodSeedData.displaySource(source))
                     }
                 }
-
-                Button(role: .destructive) {
-                    isConfirmingDelete = true
-                } label: {
-                    Label("删除记录", systemImage: "trash")
-                        .font(.rounded(16, weight: .black))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                }
-                .buttonStyle(.bordered)
-                .padding(.top, 4)
             }
         }
     }
 
+    /// Same quiet pill as "删除目标" on the goal sheet.
+    private var deleteButton: some View {
+        Button(role: .destructive) {
+            isConfirmingDelete = true
+        } label: {
+            Label("删除记录", systemImage: "trash")
+                .font(.rounded(16, weight: .black))
+                .foregroundStyle(Color.punchBlack)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 15)
+                .background(Color.punchBlack.opacity(0.07))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(PressableScaleStyle())
+    }
+
     private var noteCard: some View {
-        PunchyCard(fill: .cream, cornerRadius: 30, padding: 16) {
+        PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("备注")
-                    .font(.rounded(22, weight: .black))
-                    .foregroundStyle(Color.ink)
-
-                Text(record.note.isEmpty ? "无" : record.note)
-                    .font(.rounded(16, weight: .bold))
+                    .font(.rounded(14, weight: .black))
                     .foregroundStyle(Color.secondaryInk)
+
+                Text(record.note)
+                    .font(.rounded(16, weight: .bold))
+                    .foregroundStyle(Color.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -215,27 +220,36 @@ struct RecordDetailView: View {
     }
 }
 
+/// One line of the details card, in the same style as the settings rows on the "我的" page.
 private struct DetailLine: View {
     let title: String
     let value: String
+    var isFirst = false
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .font(.rounded(14, weight: .black))
-                .foregroundStyle(Color.secondaryInk)
-                .frame(width: 78, alignment: .leading)
+        VStack(spacing: 0) {
+            if !isFirst {
+                Rectangle()
+                    .fill(Color.punchBlack.opacity(0.07))
+                    .frame(height: 1)
+                    .padding(.leading, 16)
+            }
 
-            Text(value)
-                .font(.rounded(15, weight: .black))
-                .foregroundStyle(Color.ink)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(3)
-                .minimumScaleFactor(0.78)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.rounded(15, weight: .black))
+                    .foregroundStyle(Color.secondaryInk)
+
+                Text(value)
+                    .font(.rounded(15, weight: .black))
+                    .foregroundStyle(Color.ink)
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.78)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
         }
-        .padding(12)
-        .background(Color.cream)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }

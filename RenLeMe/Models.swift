@@ -56,11 +56,13 @@ enum ResistType: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    /// What set the urge off. Each says what happened, not what it says about the person, and no two
+    /// in a list cover the same thing. Optional everywhere: nothing is chosen unless the user picks.
     var reasons: [String] {
         switch self {
-        case .money: ["好看", "解压", "跟风", "奖励自己", "其他"]
-        case .food: ["馋了", "压力大", "无聊", "社交场景", "其他"]
-        case .time: ["累了", "逃避", "无聊", "习惯性打开", "其他"]
+        case .money: ["打折了", "被种草", "心情不好", "奖励自己", "确实需要"]
+        case .food: ["馋了", "饿了", "压力大", "别人在吃", "深夜"]
+        case .time: ["无聊", "想歇会儿", "不想干活", "睡不着", "被消息拉走"]
         }
     }
 
@@ -257,6 +259,8 @@ final class Goal {
     var icon: String
     var customImagePath: String?
     var createdAt: Date
+    /// Set when the user takes a finished goal off the board and onto the "已实现" shelf.
+    var achievedAt: Date?
 
     init(
         id: UUID = UUID(),
@@ -266,7 +270,8 @@ final class Goal {
         deadline: Date? = nil,
         icon: String,
         customImagePath: String? = nil,
-        createdAt: Date = .now
+        createdAt: Date = .now,
+        achievedAt: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -276,11 +281,24 @@ final class Goal {
         self.icon = icon
         self.customImagePath = customImagePath
         self.createdAt = createdAt
+        self.achievedAt = achievedAt
     }
 
     var type: ResistType {
         get { ResistType(rawValue: typeRaw) ?? .money }
         set { typeRaw = newValue.rawValue }
+    }
+
+    var isAchieved: Bool { achievedAt != nil }
+}
+
+extension Array where Element == Goal {
+    /// Goals still on the board: the ones lists show and new records can go to.
+    var active: [Goal] { filter { !$0.isAchieved } }
+
+    /// Goals on the "已实现" shelf, most recent first.
+    var achieved: [Goal] {
+        filter(\.isAchieved).sorted { ($0.achievedAt ?? .distantPast) > ($1.achievedAt ?? .distantPast) }
     }
 }
 

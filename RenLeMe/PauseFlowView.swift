@@ -103,7 +103,7 @@ struct PauseFlowView: View {
     }
 
     private var filteredGoals: [Goal] {
-        goals.filter { $0.type == type }
+        goals.active.filter { $0.type == type }
     }
 
     private var parsedValue: Double? {
@@ -666,22 +666,7 @@ struct PauseFlowView: View {
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
             if !filteredGoals.isEmpty {
-                HStack {
-                    Text("投向目标")
-                        .font(.rounded(15, weight: .black))
-                        .foregroundStyle(Color.fieldLabelInk)
-                        .fixedSize()
-                    Spacer(minLength: 8)
-                    Picker("投向目标", selection: $selectedGoalId) {
-                        Text("暂不关联").tag(UUID?.none)
-                        ForEach(filteredGoals) { goal in
-                            Text(goal.title).tag(Optional(goal.id))
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .tint(Color.punchBlack)
-                    .labelsHidden()
-                }
+                GoalMenuRow(goals: filteredGoals, selection: $selectedGoalId, labelColor: .fieldLabelInk, fill: .cardBackground)
             }
 
             Button {

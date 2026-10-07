@@ -64,6 +64,7 @@ struct ProfileView: View {
 
                     sectionTitle("里程碑")
                     milestoneRow
+                    AchievedShelfRow(goals: goals)
 
                     sectionTitle("提醒")
                     reminderGroup

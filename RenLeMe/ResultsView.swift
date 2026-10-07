@@ -3,7 +3,6 @@ import SwiftUI
 
 struct ResultsView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \ResistRecord.createdAt, order: .reverse) private var records: [ResistRecord]
     @Query(sort: \Goal.createdAt, order: .forward) private var goals: [Goal]
     @AppStorage("homeAssetPeriod") private var assetPeriod: AssetPeriod = .week
@@ -16,11 +15,12 @@ struct ResultsView: View {
         return GoalLedger(goals: goals, records: records)
     }
     @State private var assetFaces: [ResistType: DynamicMascotExpression] = [:]
-    @State private var completedGoalMoment: MascotMoment?
+    @State private var achievingGoal: Goal?
     @State private var activeAssetType: ResistType?
     @State private var recordToDelete: ResistRecord?
     @State private var isConfirmingDelete = false
     @State private var deleteFailed = false
+    @Namespace private var detailZoom
 
     private var assets: AssetSummary {
         StatsCalculator.assets(from: records, period: assetPeriod)
@@ -56,12 +56,6 @@ struct ResultsView: View {
             }
             .appScrollDefaults()
 
-            if let completedGoalMoment {
-                MascotFeedbackPopup(moment: completedGoalMoment) {
-                    hideGoalCelebration()
-                }
-                .zIndex(5)
-            }
         }
         .onAppear {
             assetFaces = MascotVariety.distinctFaces(previous: assetFaces, pool: MascotVariety.assetPool)
@@ -76,15 +70,6 @@ struct ResultsView: View {
                 return
             }
             if self.activeAssetType == activeAssetType { self.activeAssetType = nil }
-        }
-        .task(id: completedGoalMoment) {
-            guard completedGoalMoment != nil else { return }
-            do {
-                try await Task.sleep(for: .seconds(2))
-            } catch {
-                return
-            }
-            hideGoalCelebration()
         }
         .alert("删除这条记录？", isPresented: $isConfirmingDelete) {
             Button("删除", role: .destructive) { deleteSelectedRecord() }
@@ -104,6 +89,9 @@ struct ResultsView: View {
             NavigationStack {
                 EditGoalView(goal: goal)
             }
+        }
+        .sheet(item: $achievingGoal) { goal in
+            GoalAchievedSheet(goal: goal)
         }
     }
 
@@ -137,7 +125,7 @@ struct ResultsView: View {
             type: type,
             value: value,
             subtitle: "",
-            isPaused: completedGoalMoment != nil || editingGoal != nil || (activeAssetType != nil && activeAssetType != type),
+            isPaused: achievingGoal != nil || editingGoal != nil || (activeAssetType != nil && activeAssetType != type),
             face: assetFaces[type],
             onReaction: { activeAssetType = type }
         )
@@ -155,22 +143,23 @@ struct ResultsView: View {
                 NavigationLink {
                     GoalsView()
                 } label: {
-                    StatusChip(title: goals.isEmpty ? "新建" : "全部", fill: .punchBlack)
+                    StatusChip(title: goals.active.isEmpty ? "新建" : "全部", fill: .punchBlack)
                 }
                 .accessibilityIdentifier("goalsLink")
             }
 
-            if goals.isEmpty {
+            if goals.active.isEmpty {
                 GoalPlaceholderCard {
                     addingGoalType = .money
                 }
                 .accessibilityIdentifier("resultsAddGoalButton")
             } else {
                 VStack(spacing: 12) {
-                    ForEach(goals.prefix(3)) { goal in
+                    ForEach(goals.active.prefix(3)) { goal in
                         GoalProgressCard(goal: goal, ledger: ledger) {
-                            if isGoalCompleted(goal) {
-                                showGoalCelebration(.goalCompleted(goal.type))
+                            // A full goal opens its closing card; anything else opens for editing.
+                            if ledger.isFinished(goal) {
+                                achievingGoal = goal
                             } else {
                                 editingGoal = goal
                             }
@@ -193,6 +182,8 @@ struct ResultsView: View {
                     }
                 }
             }
+
+            AchievedShelfRow(goals: goals)
         }
     }
 
@@ -220,8 +211,10 @@ struct ResultsView: View {
                 ForEach(recentRecords) { record in
                     NavigationLink {
                         RecordDetailView(record: record)
+                            .zoomDestination(id: record.id, in: detailZoom)
                     } label: {
                         RecordRow(record: record)
+                            .zoomSource(id: record.id, in: detailZoom)
                     }
                     .buttonStyle(PlainButtonStyle())
                     .contextMenu {
@@ -258,29 +251,5 @@ struct ResultsView: View {
             deleteFailed = true
         }
         recordToDelete = nil
-    }
-
-    private func isGoalCompleted(_ goal: Goal) -> Bool {
-        ledger.isFinished(goal)
-    }
-
-    private func showGoalCelebration(_ moment: MascotMoment) {
-        if reduceMotion {
-            completedGoalMoment = moment
-        } else {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.68)) {
-                completedGoalMoment = moment
-            }
-        }
-    }
-
-    private func hideGoalCelebration() {
-        if reduceMotion {
-            completedGoalMoment = nil
-        } else {
-            withAnimation(.easeOut(duration: 0.2)) {
-                completedGoalMoment = nil
-            }
-        }
     }
 }

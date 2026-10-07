@@ -26,17 +26,9 @@ struct GoalProgressTests {
         let goals = [money, food, time]
         for goal in goals { context.insert(goal) }
 
-        for type in ResistType.allCases {
-            let expected = goals.first { $0.type == type }!
-            expect(StatsCalculator.defaultGoalId(for: type, goals: goals) == expected.id,
-                   "A single same-type goal is selected by default")
-        }
-        expect(StatsCalculator.defaultGoalId(for: .money, goals: []) == nil, "No default without a goal")
-        expect(StatsCalculator.defaultGoalId(for: .money, goals: goals + [otherMoney]) == nil,
-               "Multiple same-type goals require a choice")
 
         let foodAhead = record(.food, value: 2000, goalId: food.id)
-        let linked = record(.money, value: 100, goalId: StatsCalculator.defaultGoalId(for: .money, goals: goals))
+        let linked = record(.money, value: 100, goalId: money.id)
         let unlinked = record(.money, value: 200)
         let cooling = record(.money, value: 50, status: .pending, goalId: money.id)
         let gaveIn = record(.money, value: 75, status: .gaveIn, goalId: money.id)
@@ -68,15 +60,25 @@ struct GoalProgressTests {
                "Nothing is lost when every goal is full, and nothing is in line")
         expect(GoalLedger(goals: [money], records: [big], preferred: [:]).focusId(for: .money) == money.id,
                "A single goal keeps receiving records after it is done")
+
+        // Taking a finished goal down to the shelf keeps its amount and stops it receiving records.
+        money.achievedAt = .now
+        let shelved = GoalLedger(goals: pair, records: [big], preferred: [.money: money.id])
+        expect(shelved.value(for: money) == 1000 && shelved.value(for: otherMoney) == 300,
+               "A shelved goal keeps what it holds and still passes the rest on")
+        expect(shelved.focusId(for: .money) == otherMoney.id && !shelved.canBecomeFocus(money),
+               "New records never go to a shelved goal, even a chosen one")
+        expect(GoalLedger(goals: [money], records: [big], preferred: [:]).focusId(for: .money) == nil,
+               "With only a shelved goal left, nothing is in line")
+        expect(pair.active.map(\.id) == [otherMoney.id] && pair.achieved.map(\.id) == [money.id],
+               "Lists show goals on the board; the shelf shows the rest")
+        money.achievedAt = nil
         expect(GoalLedger(goals: goals, records: [foodAhead], preferred: [:]).value(for: money) == 0,
                "Overflow never crosses between kinds of urge")
 
         // Insights stay quiet until there is enough to go on.
         let thin = RecordInsights(records: [linked, unlinked])
-        expect(thin.peakTime == nil && thin.typeRates == nil && thin.cooldownEffect == nil,
-               "Two records are not a pattern")
-        expect(thin.topItem?.title == "测试" && thin.topItem?.count == 2, "A repeated item is the one wanted most")
-        expect(RecordInsights(records: [linked]).topItem == nil, "One mention is not a favourite")
+        expect(thin.peakTime == nil, "Two records are not a pattern")
         let cooledWin = record(.money, value: 10)
         cooledWin.enteredCooldown = true
         let cooledLoss = record(.food, value: 10, status: .gaveIn)
@@ -94,10 +96,6 @@ struct GoalProgressTests {
             for (type, count) in block { total[type, default: 0] += count }
         }
         expect(byType?[.money] == 5 && byType?[.food] == 1, "Time-of-day blocks keep the kind of urge")
-        let moneyRate = insights.typeRates?.first { $0.type == .money }
-        expect(moneyRate?.resisted == 3 && moneyRate?.decided == 4, "Pending records are left out of the rate")
-        expect(insights.cooldownEffect?.resisted == 1 && insights.cooldownEffect?.decided == 2,
-               "Cooldown effect only looks at records that waited")
         expect(RecordInsights.daysTogether(records: []) == 0 && RecordInsights.daysTogether(records: [linked]) == 1,
                "The first day together is day one")
         expect(RecordInsights.csv(records: [linked], goals: goals).contains("旅行"), "Export names the linked goal")
@@ -144,7 +142,7 @@ struct GoalProgressTests {
         context.delete(cooling)
         try context.save()
         expect(try value(money) == 0, "Deleting a record removes its contribution")
-        print("PASS: default goal selection, three value types, saved records, cooling resolution, edits, reassignment, and deletion")
+        print("PASS: goal ledger and shelf, three value types, saved records, cooling resolution, edits, reassignment, and deletion")
     }
 
     private static func record(

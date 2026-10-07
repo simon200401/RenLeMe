@@ -69,6 +69,9 @@ enum GoalFocus {
 /// How far along every goal is. Within one kind of urge goals fill one at a time: each resisted
 /// record counts towards the goal it was put in, and whatever goes past that goal's target passes
 /// on to the next one in line, so nothing is lost inside a goal that is already done.
+///
+/// Goals on the "已实现" shelf stay in the sums — what they hold is theirs for good, and what was
+/// saved past them still passes on — but new records never go to them.
 struct GoalLedger {
     private var values: [UUID: Double] = [:]
     private var targets: [UUID: Double] = [:]
@@ -91,6 +94,7 @@ struct GoalLedger {
 
             // The line: the chosen goal first, then whichever is furthest along, then the oldest.
             let line = ofType.enumerated().sorted { lhs, rhs in
+                if lhs.element.isAchieved != rhs.element.isAchieved { return !lhs.element.isAchieved }
                 let lhsChosen = lhs.element.id == preferred[type]
                 let rhsChosen = rhs.element.id == preferred[type]
                 if lhsChosen != rhsChosen { return lhsChosen }
@@ -111,10 +115,11 @@ struct GoalLedger {
                 filled[first.id, default: 0] += spare
             }
 
-            let unfinished = line.filter { (filled[$0.id] ?? 0) < $0.targetValue }
+            let open = ofType.active
+            let unfinished = line.filter { !$0.isAchieved && (filled[$0.id] ?? 0) < $0.targetValue }
             unfinishedCounts[type] = unfinished.count
             // With a single goal a record still lands on it once it is done, as it always has.
-            focusIds[type] = unfinished.first?.id ?? (ofType.count == 1 ? ofType[0].id : nil)
+            focusIds[type] = unfinished.first?.id ?? (open.count == 1 ? open[0].id : nil)
             values.merge(filled) { _, new in new }
         }
     }
@@ -147,20 +152,15 @@ struct GoalLedger {
 
     /// Whether this goal could be moved to the front of the line.
     func canBecomeFocus(_ goal: Goal) -> Bool {
-        !isFinished(goal) && focusIds[goal.type] != goal.id
+        !goal.isAchieved && !isFinished(goal) && focusIds[goal.type] != goal.id
     }
 }
 
 enum StatsCalculator {
-    static func defaultGoalId(for type: ResistType, goals: [Goal]) -> UUID? {
-        let matchingGoals = goals.filter { $0.type == type }
-        return matchingGoals.count == 1 ? matchingGoals.first?.id : nil
-    }
-
     /// The unfinished goal closest to completion, optionally limited to one type.
     static func nearestUnfinishedGoal(in goals: [Goal], records: [ResistRecord], type: ResistType? = nil) -> Goal? {
         let ledger = GoalLedger(goals: goals, records: records)
-        return goals
+        return goals.active
             .filter { type == nil || $0.type == type }
             .map { ($0, ledger.progress(of: $0)) }
             .filter { $0.1 < 1 }

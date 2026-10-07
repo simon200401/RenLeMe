@@ -7,6 +7,7 @@ struct HistoryRecordsView: View {
 
     @State private var typeFilter: RecordTypeFilter = .all
     @State private var statusFilter: RecordStatusFilter = .all
+    @Namespace private var detailZoom
 
     private var filteredRecords: [ResistRecord] {
         records.filter { record in
@@ -23,7 +24,7 @@ struct HistoryRecordsView: View {
                     filters
 
                     if filteredRecords.isEmpty {
-                        PunchyCard(fill: .cardBackground) {
+                        PunchyCard(fill: .cardBackground, cornerRadius: 24) {
                             EmptyStateView(title: "没有符合条件的记录", message: "", systemImage: "tray")
                         }
                     } else {
@@ -31,8 +32,10 @@ struct HistoryRecordsView: View {
                             ForEach(filteredRecords) { record in
                                 NavigationLink {
                                     RecordDetailView(record: record)
+                                        .zoomDestination(id: record.id, in: detailZoom)
                                 } label: {
                                     RecordRow(record: record)
+                                        .zoomSource(id: record.id, in: detailZoom)
                                 }
                                 .buttonStyle(.plain)
                                 .contextMenu {
@@ -47,7 +50,7 @@ struct HistoryRecordsView: View {
                         }
                     }
                 }
-.padding(.horizontal, 18)
+                .padding(.horizontal, 18)
                 .padding(.top, 6)
                 .padding(.bottom, 18)
             }
@@ -113,9 +116,9 @@ private enum RecordTypeFilter: String, CaseIterable, Identifiable, TitledFilter 
     var title: String {
         switch self {
         case .all: "全部"
-        case .money: "金钱"
-        case .food: "食物"
-        case .time: "时间"
+        case .money: "想买"
+        case .food: "想吃"
+        case .time: "想玩"
         }
     }
 

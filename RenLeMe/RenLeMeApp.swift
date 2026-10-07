@@ -13,7 +13,19 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        QuickEntry.installShortcutItems()
         return true
+    }
+
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        // SwiftUI still owns the window; this only adds somewhere for the icon menu to report to.
+        let configuration = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+        configuration.delegateClass = SceneDelegate.self
+        return configuration
     }
 
     func userNotificationCenter(
@@ -96,7 +108,7 @@ struct AppRootView: View {
     @Query(sort: \ResistRecord.createdAt, order: .reverse) private var records: [ResistRecord]
     @Query(sort: \Goal.createdAt, order: .forward) private var goals: [Goal]
     @AppStorage("didSeedDefaultGoals") private var didSeedDefaultGoals = false
-    @AppStorage("didSeedFoodNutritionItems") private var didSeedFoodNutritionItems = false
+    @AppStorage(FoodSeedData.versionKey) private var foodSeedVersion = 0
     @AppStorage("didRemoveLegacyDefaultGoalsV1") private var didRemoveLegacyDefaultGoalsV1 = false
     @AppStorage("didCompleteWelcomeOnboarding") private var didCompleteWelcomeOnboarding = false
     @State private var selectedTab: AppTab = .home
@@ -190,8 +202,22 @@ struct AppRootView: View {
             seedFoodNutritionItemsIfNeeded()
             routePendingCooldownIfNeeded()
             routePendingWeeklySummaryIfNeeded()
+            routePendingPauseIfNeeded()
             rescheduleWeeklySummary()
             MascotAttention.shared.install()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openPause)) { _ in
+            routePendingPauseIfNeeded()
+        }
+        .onOpenURL { url in
+            QuickEntry.handle(url: url)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openHome)) { _ in
+            dismissPresentedFlows()
+            selectedTab = .home
+        }
+        .onChange(of: widgetSnapshot, initial: true) { _, snapshot in
+            WidgetBridge.publish(snapshot)
         }
         .onReceive(NotificationCenter.default.publisher(for: .openCooldownRecord)) { notification in
             guard let rawId = notification.object as? String, let id = UUID(uuidString: rawId) else { return }
@@ -217,6 +243,12 @@ struct AppRootView: View {
         }
     }
 
+    private var widgetSnapshot: WidgetSnapshot {
+        // Read here so a new day is noticed when the app comes back to the front.
+        _ = scenePhase
+        return WidgetBridge.snapshot(from: records)
+    }
+
     private var weeklySummary: WeeklySummaryContent {
         WeeklySummaryContent(records: records, goals: goals)
     }
@@ -231,6 +263,18 @@ struct AppRootView: View {
         UserDefaults.standard.removeObject(forKey: key)
         dismissPresentedFlows()
         selectedTab = .results
+    }
+
+    /// Straight into the pause for the kind chosen outside the app. Someone who has not been through
+    /// the welcome yet sees that first; the choice is dropped rather than sprung on them afterwards.
+    private func routePendingPauseIfNeeded() {
+        guard let type = QuickEntry.takePending(), didCompleteWelcomeOnboarding else { return }
+        guard pauseType != type else { return }
+        isShowingLaunchSplash = false
+        isPresentingRecord = false
+        routedCooldownRecord = nil
+        selectedTab = .home
+        pauseType = type
     }
 
     private func dismissPresentedFlows() {
@@ -336,13 +380,9 @@ struct AppRootView: View {
     }
 
     private func seedFoodNutritionItemsIfNeeded() {
-        guard !didSeedFoodNutritionItems else { return }
-
-        for item in FoodSeedData.items {
-            modelContext.insert(item)
-        }
-
-        didSeedFoodNutritionItems = true
+        guard foodSeedVersion < FoodSeedData.version else { return }
+        FoodSeedData.sync(into: modelContext)
+        foodSeedVersion = FoodSeedData.version
     }
 
 }

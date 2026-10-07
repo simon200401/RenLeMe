@@ -2,14 +2,12 @@ import SwiftData
 import SwiftUI
 
 struct GoalsView: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Goal.createdAt, order: .forward) private var goals: [Goal]
     @Query(sort: \ResistRecord.createdAt, order: .reverse) private var records: [ResistRecord]
     @State private var isAddingGoal = false
     @State private var editingGoal: Goal?
-    @State private var completedGoalMoment: MascotMoment?
-    @State private var headerFace: DynamicMascotExpression?
+    @State private var achievingGoal: Goal?
     @AppStorage(GoalFocus.versionKey) private var focusVersion = 0
 
     private var ledger: GoalLedger {
@@ -23,19 +21,19 @@ struct GoalsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    header
-
-                    if goals.isEmpty {
-                        PunchyCard(fill: .punchYellow) {
+                    if goals.active.isEmpty {
+                        PunchyCard(fill: .cardBackground, cornerRadius: 24) {
                             EmptyStateView(title: "还没有目标", message: "", systemImage: "target")
                         }
                     } else {
-                        VStack(spacing: 14) {
-                            ForEach(goals) { goal in
-                                GoalDetailCard(goal: goal, ledger: ledger) {
-                                    editingGoal = goal
-                                } onCelebrate: { moment in
-                                    showGoalCelebration(moment)
+                        VStack(spacing: 12) {
+                            ForEach(goals.active) { goal in
+                                GoalProgressCard(goal: goal, ledger: ledger) {
+                                    if ledger.isFinished(goal) {
+                                        achievingGoal = goal
+                                    } else {
+                                        editingGoal = goal
+                                    }
                                 }
                                     .contextMenu {
                                         Button {
@@ -67,19 +65,6 @@ struct GoalsView: View {
                 .padding(.bottom, 28)
             }
             .appScrollDefaults()
-
-            if let completedGoalMoment {
-                MascotFeedbackPopup(moment: completedGoalMoment) {
-                    hideGoalCelebration()
-                }
-            }
-        }
-        .onAppear {
-            let hasProgress = goals.contains(where: { goalProgress(for: $0) > 0 })
-            headerFace = MascotVariety.next(
-                from: hasProgress ? [.sparkle, .proud, .celebrate, .settled] : [.curious, .hello, .thinking],
-                avoiding: [headerFace]
-            )
         }
         .navigationTitle("目标")
         .navigationBarTitleDisplayMode(.inline)
@@ -104,54 +89,8 @@ struct GoalsView: View {
                 EditGoalView(goal: goal)
             }
         }
-    }
-
-    private var header: some View {
-        PunchyCard(fill: .cream, cornerRadius: 34, padding: 20) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Goals")
-                        .font(.rounded(42, weight: .black))
-                        .foregroundStyle(Color.ink)
-                }
-
-                Spacer()
-
-                AnimatedXiaoRenView(
-                    color: Color(red: 1.0, green: 0.949, blue: 0.839),
-                    expression: headerFace ?? .curious,
-                    size: 76,
-                    reduceMotion: reduceMotion
-                )
-            }
-        }
-    }
-
-    private func goalProgress(for goal: Goal) -> Double {
-        ledger.progress(of: goal)
-    }
-
-    private func showGoalCelebration(_ moment: MascotMoment) {
-        if reduceMotion {
-            completedGoalMoment = moment
-        } else {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.68)) {
-                completedGoalMoment = moment
-            }
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            hideGoalCelebration()
-        }
-    }
-
-    private func hideGoalCelebration() {
-        if reduceMotion {
-            completedGoalMoment = nil
-        } else {
-            withAnimation(.easeOut(duration: 0.2)) {
-                completedGoalMoment = nil
-            }
+        .sheet(item: $achievingGoal) { goal in
+            GoalAchievedSheet(goal: goal)
         }
     }
 
@@ -164,138 +103,6 @@ struct GoalsView: View {
         } catch {
             modelContext.rollback()
         }
-    }
-}
-
-private struct GoalDetailCard: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    let goal: Goal
-    let ledger: GoalLedger
-    var onEdit: () -> Void = {}
-    var onCelebrate: (MascotMoment) -> Void = { _ in }
-    @State private var pulse = false
-
-    private var current: Double {
-        ledger.value(for: goal)
-    }
-
-    private var progress: Double {
-        ledger.progress(of: goal)
-    }
-
-    private var isCompleted: Bool {
-        progress >= 1
-    }
-
-    var body: some View {
-        Button {
-            isCompleted ? onCelebrate(.goalCompleted(goal.type)) : onEdit()
-        } label: {
-            PunchyCard(fill: cardColor, cornerRadius: 32, padding: 18) {
-                VStack(alignment: .leading, spacing: 18) {
-                    HStack(alignment: .top, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 8) {
-                                Text(goal.title)
-                                    .font(.rounded(27, weight: .black))
-                                    .foregroundStyle(textColor)
-                                    .lineLimit(2)
-                                    .minimumScaleFactor(0.72)
-
-                                if isCompleted {
-                                    Image(systemName: "sparkles")
-                                        .font(.rounded(18, weight: .black))
-                                        .foregroundStyle(textColor)
-                                        .scaleEffect(pulse ? 1.18 : 0.92)
-                                }
-                            }
-
-                            Text(isCompleted ? "已完成" : ledger.isFocus(goal) ? "正在攒" : goal.type.assetTitle)
-                                .font(.rounded(14, weight: .black))
-                                .foregroundStyle(textColor.opacity(0.72))
-                        }
-
-                        Spacer()
-
-                        ZStack(alignment: .bottomTrailing) {
-                            GoalIconView(goal: goal, size: 78)
-
-                            AnimatedXiaoRenView(
-                                color: cardColor,
-                                expression: goalMascotExpression,
-                                size: 54,
-                                reduceMotion: reduceMotion
-                            )
-                            .offset(x: 8, y: 10)
-                            .scaleEffect(isCompleted && pulse ? 1.08 : 0.94)
-                        }
-                    }
-
-                    HStack(spacing: 8) {
-                        ForEach(0..<7, id: \.self) { index in
-                            let filled = Double(index + 1) / 7 <= min(progress, 1)
-                            Circle()
-                                .fill(filled ? Color.punchBlack : Color.punchBlack.opacity(0.16))
-                                .frame(width: 30, height: 30)
-                                .overlay {
-                                    if filled {
-                                        Image(systemName: "checkmark")
-                                            .font(.rounded(12, weight: .black))
-                                            .foregroundStyle(Color.white)
-                                    }
-                                }
-                                .scaleEffect(isCompleted && pulse ? 1.08 : 1)
-                        }
-                    }
-
-                    ProgressLine(progress: progress, tint: .punchBlack)
-
-                    HStack(alignment: .lastTextBaseline) {
-                        Text(current.displayValue(for: goal.type))
-                            .font(.rounded(24, weight: .black))
-                            .foregroundStyle(textColor)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.62)
-                        Text("/ \(goal.targetValue.displayValue(for: goal.type))")
-                            .font(.rounded(14, weight: .black))
-                            .foregroundStyle(textColor.opacity(0.72))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.68)
-                        Spacer()
-                        StatusChip(title: "\(Int(min(progress, 1) * 100))%", fill: .punchBlack)
-                    }
-                }
-            }
-        }
-        .buttonStyle(PlainButtonStyle())
-        .onAppear {
-            guard isCompleted, !reduceMotion else { return }
-            withAnimation(.easeOut(duration: 0.3)) {
-                pulse = true
-            }
-        }
-        .onDisappear { pulse = false }
-    }
-
-    private var textColor: Color {
-        goal.type == .time ? .punchBlack : .white
-    }
-
-    private var goalSeed: Int {
-        goal.title.unicodeScalars.reduce(0) { $0 + Int($1.value) }
-    }
-
-    private var goalMascotExpression: DynamicMascotExpression {
-        if isCompleted { return .celebrate }
-        if progress >= 0.66 { return .proud }
-        if progress > 0 {
-            return [.sparkle, .relieved, .hello][goalSeed % 3]
-        }
-        return [.curious, .thinking, .sparkle][goalSeed % 3]
-    }
-
-    private var cardColor: Color {
-        Color.blockColor(for: goal.type)
     }
 }
 
@@ -507,7 +314,7 @@ struct AddGoalView: View {
     }
 
     var body: some View {
-        goalForm(titleText: "New goal", mascot: MascotMomentView(moment: .idle, size: 74))
+        goalForm
             .navigationTitle("新目标")
             .navigationBarTitleDisplayMode(.inline)
             .appKeyboardDismissal()
@@ -533,22 +340,12 @@ struct AddGoalView: View {
             }
     }
 
-    private func goalForm<Mascot: View>(titleText: String, mascot: Mascot) -> some View {
+    private var goalForm: some View {
         ZStack {
             Color.appBackground.ignoresSafeArea()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    PunchyCard(fill: Color.blockColor(for: type), cornerRadius: 34, padding: 20) {
-                        HStack(alignment: .top) {
-                            Text(titleText)
-                                .font(.rounded(38, weight: .black))
-                                .foregroundStyle(type == .time ? Color.punchBlack : .white)
-                            Spacer()
-                            mascot
-                        }
-                    }
-
                     PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 16) {
                         VStack(alignment: .leading, spacing: 16) {
                             labeledField("目标标题") {
@@ -678,16 +475,6 @@ struct EditGoalView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    PunchyCard(fill: Color.blockColor(for: type), cornerRadius: 34, padding: 20) {
-                        HStack(alignment: .top) {
-                            Text("Edit goal")
-                                .font(.rounded(38, weight: .black))
-                                .foregroundStyle(type == .time ? Color.punchBlack : .white)
-                            Spacer()
-                            AnimatedXiaoRenView(color: type.v2MascotColor, expression: .thinking, size: 74)
-                        }
-                    }
-
                     PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 16) {
                         VStack(alignment: .leading, spacing: 16) {
                             labeledField("目标标题") {

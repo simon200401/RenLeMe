@@ -28,20 +28,19 @@ struct RecordFlowView: View {
     @State private var selectedType: ResistType = .money
     @State private var title = ""
     @State private var valueText = ""
-    @State private var selectedReason = "好看"
+    @State private var selectedReason = ""
     @State private var note = ""
     @State private var selectedGoalId: UUID?
     @State private var hasChosenGoal = false
     @State private var selectedTemplate: PropTemplate?
     @State private var isCustomPropSelected = false
-    @State private var isPropPickerExpanded = false
+    @State private var isShowingAllTemplates = false
     @State private var isDetailsExpanded = false
     @State private var customImage: UIImage?
     @State private var customImageSource: CustomImageSource?
     @State private var selectedFood: FoodNutritionItem?
     @State private var servingGramsText = ""
     @State private var completionMoment: MascotMoment?
-    @State private var introExpression: DynamicMascotExpression = .thinking
     @State private var introReaction: MascotReaction?
     @State private var introReactionToken = 0
     @State private var isShowingFoodPicker = false
@@ -51,7 +50,7 @@ struct RecordFlowView: View {
     @FocusState private var isServingFocused: Bool
 
     private var filteredGoals: [Goal] {
-        goals.filter { $0.type == selectedType }
+        goals.active.filter { $0.type == selectedType }
     }
 
     private var parsedValue: Double {
@@ -89,8 +88,9 @@ struct RecordFlowView: View {
         effectiveValue > 0
     }
 
+    /// Only a name is needed; the amount can be filled in later from the record.
     private func canSave(_ status: ResistStatus) -> Bool {
-        hasTitle && (status == .pending || hasEstimatedValue)
+        hasTitle
     }
 
     var body: some View {
@@ -100,9 +100,8 @@ struct RecordFlowView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    intro
                     typePicker
-                    propPicker
+                    itemCard
                     detailsCard
                     decisionCard
                 }
@@ -117,7 +116,7 @@ struct RecordFlowView: View {
                 }
             }
         }
-        .navigationTitle("忍一下")
+        .navigationTitle("直接记录")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if isModal {
@@ -145,7 +144,6 @@ struct RecordFlowView: View {
                 return
             }
             self.introReaction = nil
-            introExpression = .thinking
         }
         .onDisappear(perform: dismissInput)
         .onChange(of: isDetailsExpanded) { _, isExpanded in
@@ -153,13 +151,13 @@ struct RecordFlowView: View {
         }
         .onChange(of: selectedType) { _, newType in
             dismissInput()
-            selectedReason = newType.reasons.first ?? ""
+            selectedReason = ""
             selectedGoalId = nil
             hasChosenGoal = false
             synchronizeGoalSelection()
             selectedTemplate = nil
             isCustomPropSelected = false
-            isPropPickerExpanded = false
+            isShowingAllTemplates = false
             customImage = nil
             customImageSource = nil
             selectedFood = nil
@@ -168,7 +166,7 @@ struct RecordFlowView: View {
             valueText = ""
             isDetailsExpanded = false
             completionMoment = nil
-            pulseIntro(.hello, reaction: newType.selectionReaction)
+            pulseIntro(newType.selectionReaction)
         }
         .sheet(isPresented: $isShowingFoodPicker) {
             NavigationStack {
@@ -192,37 +190,10 @@ struct RecordFlowView: View {
         }
     }
 
-    private var intro: some View {
-        PunchyCard(fill: Color.blockColor(for: selectedType), cornerRadius: 34, padding: 20) {
-            HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Pause")
-                        .font(.rounded(42, weight: .black))
-                        .foregroundStyle(selectedType == .time ? Color.punchBlack : .white)
-
-                }
-
-                Spacer()
-
-                AnimatedXiaoRenView(
-                    color: selectedType.v2MascotColor,
-                    expression: introExpression,
-                    size: 86,
-                    reduceMotion: reduceMotion,
-                    reaction: introReaction?.isPropInteraction == true ? nil : introReaction,
-                    reactionToken: introReactionToken,
-                    allowsIdleMotion: true,
-                    isPaused: isInputFocused || completionMoment != nil || isShowingFoodPicker || customImageSource != nil || introReaction?.isPropInteraction == true,
-                    heldType: selectedType
-                )
-            }
-        }
-    }
-
     private var typePicker: some View {
         PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 16) {
             VStack(alignment: .leading, spacing: 14) {
-                Text("1. 选择欲望类型")
+                Text("哪一类")
                     .font(.rounded(20, weight: .black))
                     .foregroundStyle(Color.ink)
 
@@ -232,7 +203,7 @@ struct RecordFlowView: View {
                             if selectedType == type {
                                 guard introReaction?.isPropInteraction != true else { return }
                                 dismissInput()
-                                pulseIntro(.hello, reaction: type.selectionReaction)
+                                pulseIntro(type.selectionReaction)
                             } else {
                                 selectedType = type
                             }
@@ -244,7 +215,7 @@ struct RecordFlowView: View {
                                     reactionToken: introReactionToken,
                                     isPaused: isInputFocused || completionMoment != nil || isShowingFoodPicker || customImageSource != nil
                                 )
-                                Text(type.title)
+                                Text(type.urgeTitle)
                                     .font(.rounded(15, weight: .black))
                                     .foregroundStyle(Color.punchBlack)
                             }
@@ -264,147 +235,169 @@ struct RecordFlowView: View {
         }
     }
 
-    private var propPicker: some View {
+    private static let collapsedTemplateCount = 7
+
+    private let itemColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 4)
+
+    private var orderedTemplates: [PropTemplate] {
+        PropTemplate.templates(for: selectedType, orderedByUsageIn: records)
+    }
+
+    /// Two rows with "自填"; the chosen one is kept in view even if it sits further down the list.
+    private var visibleTemplates: [PropTemplate] {
+        guard !isShowingAllTemplates else { return orderedTemplates }
+        var shown = Array(orderedTemplates.prefix(Self.collapsedTemplateCount))
+        if let selectedTemplate, !shown.contains(selectedTemplate) {
+            shown[shown.count - 1] = selectedTemplate
+        }
+        return shown
+    }
+
+    /// What it is and how much, in one card.
+    private var itemCard: some View {
         PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 16) {
             VStack(alignment: .leading, spacing: 14) {
-                Text("2. 选择一个具体道具")
-                    .font(.rounded(20, weight: .black))
-                    .foregroundStyle(Color.ink)
+                HStack {
+                    Text("\(selectedType.urgeTitle)什么")
+                        .font(.rounded(20, weight: .black))
+                        .foregroundStyle(Color.ink)
 
-                Button {
-                    toggleCustomProp()
-                    pulseIntro(.curious)
-                } label: {
-                    CustomPropCard(type: selectedType, selectedImage: customImage, isSelected: isCustomPropSelected)
+                    Spacer()
+
+                    if orderedTemplates.count > Self.collapsedTemplateCount {
+                        Button {
+                            toggleAllTemplates()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text(isShowingAllTemplates ? "收起" : "更多")
+                                Image(systemName: "chevron.down")
+                                    .rotationEffect(.degrees(isShowingAllTemplates ? 180 : 0))
+                            }
+                            .font(.rounded(13, weight: .black))
+                            .foregroundStyle(Color.punchBlack)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(Color.cream)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(PressableScaleStyle())
+                        .accessibilityIdentifier("builtInPropToggle")
+                    }
                 }
-                .buttonStyle(PressableScaleStyle())
-                .accessibilityLabel("自选道具")
+
+                LazyVGrid(columns: itemColumns, spacing: 8) {
+                    customTile
+                    ForEach(visibleTemplates) { template in
+                        itemTile(template)
+                    }
+                }
 
                 if isCustomPropSelected {
                     customPropControls
                 }
 
-                Button {
-                    togglePropPicker()
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "square.grid.2x2.fill")
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(isPropPickerExpanded ? "收起内置道具" : "展开内置道具")
-                                .font(.rounded(16, weight: .black))
-                            if let selectedTemplate {
-                                Text("已选：\(selectedTemplate.title)")
-                                    .font(.rounded(13, weight: .bold))
-                            }
-                        }
-                        Spacer(minLength: 4)
-                        Image(systemName: isPropPickerExpanded ? "chevron.up" : "chevron.down")
-                    }
-                    .foregroundStyle(Color.punchBlack)
-                    .padding(14)
-                    .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-                    .background(Color.softBlockColor(for: selectedType))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(PressableScaleStyle())
-                .accessibilityValue(isPropPickerExpanded ? "已展开" : "已收起")
-                .accessibilityIdentifier("builtInPropToggle")
-
-                if isPropPickerExpanded {
-                    LazyVGrid(columns: propColumns, spacing: 10) {
-                        ForEach(PropTemplate.templates(for: selectedType)) { template in
-                            Button {
-                                selectTemplate(template)
-                                pulseIntro(selectedTemplate?.id == template.id ? .curious : .sparkle)
-                            } label: {
-                                PropCard(template: template, isSelected: selectedTemplate?.id == template.id)
-                            }
-                            .buttonStyle(PressableScaleStyle())
-                            .accessibilityLabel("选择\(template.title)")
-                        }
-                    }
-                }
-
-                goalPicker
-
-                Button {
-                    save(status: .pending)
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "pause.fill")
-                            .font(.rounded(18, weight: .black))
-                            .foregroundStyle(Color.punchBlack)
-                            .frame(width: 38, height: 38)
-                            .background(Color.punchYellow)
-                            .clipShape(Circle())
-
-                        Text("先缓一下")
-                            .font(.rounded(18, weight: .black))
-
-                        Spacer()
-
-                        Text(cooldownDurationText)
-                            .font(.rounded(13, weight: .black))
-                            .foregroundStyle(Color.white.opacity(0.78))
-                    }
-                    .foregroundStyle(Color.white)
-                    .padding(12)
-                    .background(Color.punchBlack)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                }
-                .buttonStyle(PressableScaleStyle())
-                .disabled(!canSave(.pending))
-                .opacity(canSave(.pending) ? 1 : 0.45)
+                valueField
             }
         }
     }
 
-    private let propColumns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10)
-    ]
+    /// Always first and inverted, as in the pause flow.
+    private var customTile: some View {
+        Button {
+            toggleCustomProp()
+        } label: {
+            tileLabel(title: "自填", isSelected: isCustomPropSelected) {
+                if let customImage {
+                    Image(uiImage: customImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 52, height: 52)
+                        .clipShape(RoundedRectangle(cornerRadius: 52 * 0.28, style: .continuous))
+                } else {
+                    RoundedRectangle(cornerRadius: 52 * 0.28, style: .continuous)
+                        .fill(Color.punchBlack)
+                        .frame(width: 52, height: 52)
+                        .overlay {
+                            Image(systemName: "pencil")
+                                .font(.rounded(20, weight: .black))
+                                .foregroundStyle(Color.white)
+                        }
+                }
+            }
+        }
+        .buttonStyle(PressableScaleStyle())
+        .accessibilityLabel("自填")
+        .accessibilityAddTraits(isCustomPropSelected ? .isSelected : [])
+        .accessibilityIdentifier("customItemChip")
+    }
+
+    private func itemTile(_ template: PropTemplate) -> some View {
+        let isSelected = selectedTemplate?.id == template.id
+        return Button {
+            selectTemplate(template)
+            pulseIntro()
+        } label: {
+            tileLabel(title: template.title, isSelected: isSelected) {
+                PropIconView(template: template, size: 52)
+            }
+        }
+        .buttonStyle(PressableScaleStyle())
+        .accessibilityLabel("选择\(template.title)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func tileLabel<Icon: View>(title: String, isSelected: Bool, @ViewBuilder icon: () -> Icon) -> some View {
+        VStack(spacing: 6) {
+            icon()
+
+            Text(title)
+                .font(.rounded(12, weight: .black))
+                .foregroundStyle(Color.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 9)
+        .background(isSelected ? Color.softBlockColor(for: selectedType) : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.punchBlack, lineWidth: isSelected ? 2 : 0)
+        }
+        .contentShape(Rectangle())
+    }
 
     private var customPropControls: some View {
         VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("自选名称")
-                    .font(.rounded(14, weight: .black))
-                    .foregroundStyle(Color.fieldLabelInk)
-
-                AppTextField(placeholder: customTitlePlaceholder, text: $title, focus: $isTitleFocused)
-            }
+            AppTextField(placeholder: customTitlePlaceholder, text: $title, focus: $isTitleFocused)
 
             HStack(spacing: 10) {
-                Button {
-                    openCustomImageSource(.photoLibrary)
-                } label: {
-                    Label("相册", systemImage: "photo.fill")
-                        .font(.rounded(14, weight: .black))
-                        .foregroundStyle(Color.punchBlack)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.softBlockColor(for: selectedType))
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(PressableScaleStyle())
-
-                Button {
-                    openCustomImageSource(.camera)
-                } label: {
-                    Label(UIImagePickerController.isSourceTypeAvailable(.camera) ? "拍照" : "真机拍照", systemImage: "camera.fill")
-                        .font(.rounded(14, weight: .black))
-                        .foregroundStyle(Color.punchBlack)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.cream)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(PressableScaleStyle())
-                .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
-                .opacity(UIImagePickerController.isSourceTypeAvailable(.camera) ? 1 : 0.45)
+                photoButton(title: "相册", systemImage: "photo.fill", source: .photoLibrary)
+                photoButton(
+                    title: UIImagePickerController.isSourceTypeAvailable(.camera) ? "拍照" : "真机拍照",
+                    systemImage: "camera.fill",
+                    source: .camera
+                )
             }
         }
+    }
+
+    private func photoButton(title: String, systemImage: String, source: CustomImageSource) -> some View {
+        let isAvailable = UIImagePickerController.isSourceTypeAvailable(source.sourceType)
+        return Button {
+            openCustomImageSource(source)
+        } label: {
+            Label(title, systemImage: systemImage)
+                .font(.rounded(14, weight: .black))
+                .foregroundStyle(Color.punchBlack)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.cream)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(PressableScaleStyle())
+        .disabled(!isAvailable)
+        .opacity(isAvailable ? 1 : 0.45)
     }
 
     private var customTitlePlaceholder: String {
@@ -412,6 +405,58 @@ struct RecordFlowView: View {
         case .money: "比如：香水、衣服、手表"
         case .food: "比如：奶茶、炸鸡、甜品"
         case .time: "比如：刷视频、闲聊、拖延"
+        }
+    }
+
+    /// In plain sight, but never required: a record without a number shows "待补充" and can be
+    /// filled in later.
+    private var valueField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text("\(selectedType.valueTitle) · \(unitText)")
+                    .font(.rounded(15, weight: .black))
+                    .foregroundStyle(Color.fieldLabelInk)
+
+                // A built-in default is for a stated serving; say which.
+                if let selectedTemplate, selectedTemplate.defaultValue != nil {
+                    Text(selectedTemplate.caption)
+                        .font(.rounded(12, weight: .bold))
+                        .foregroundStyle(Color.secondaryInk)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+
+                Spacer(minLength: 0)
+
+                Text("选填")
+                    .font(.rounded(12, weight: .bold))
+                    .foregroundStyle(Color.secondaryInk)
+            }
+
+            AppTextField(placeholder: valuePlaceholder, text: $valueText, keyboardType: .decimalPad, focus: $isValueFocused)
+
+            HStack(spacing: 8) {
+                ForEach(selectedType.quickValues, id: \.self) { value in
+                    Button {
+                        AppHaptics.lightTap()
+                        dismissInput()
+                        selectedFood = nil
+                        servingGramsText = ""
+                        valueText = value.cleanString
+                    } label: {
+                        Text(value.displayValue(for: selectedType))
+                            .font(.rounded(13, weight: .black))
+                            .foregroundStyle(Color.punchBlack)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                            .background(Color.softBlockColor(for: selectedType))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(PressableScaleStyle())
+                }
+            }
         }
     }
 
@@ -429,13 +474,13 @@ struct RecordFlowView: View {
                     }
                 } label: {
                     HStack {
-                        Text("3. 补充信息")
+                        Text("补充信息")
                             .font(.rounded(20, weight: .black))
                             .foregroundStyle(Color.ink)
 
                         Spacer()
 
-                        Text(hasEstimatedValue ? effectiveValue.displayValue(for: selectedType) : "可选")
+                        Text("可选")
                             .font(.rounded(13, weight: .black))
                             .foregroundStyle(Color.secondaryInk)
 
@@ -450,21 +495,37 @@ struct RecordFlowView: View {
                 if isDetailsExpanded {
                     if selectedType == .food {
                         foodDatabaseFields
-                    } else {
-                        standardValueFields
                     }
+
+                    goalPicker
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("此刻的原因")
                             .font(.rounded(15, weight: .black))
                             .foregroundStyle(Color.fieldLabelInk)
 
-                        Picker("原因", selection: $selectedReason) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 88), spacing: 8)], alignment: .leading, spacing: 8) {
                             ForEach(selectedType.reasons, id: \.self) { reason in
-                                Text(reason).tag(reason)
+                                let isSelected = selectedReason == reason
+                                Button {
+                                    dismissInput()
+                                    // Tapping the chosen one again clears it.
+                                    selectedReason = isSelected ? "" : reason
+                                } label: {
+                                    Text(reason)
+                                        .font(.rounded(14, weight: .black))
+                                        .foregroundStyle(isSelected ? .white : .punchBlack)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 11)
+                                        .background(isSelected ? Color.punchBlack : Color.cream)
+                                        .clipShape(Capsule())
+                                }
+                                .buttonStyle(PressableScaleStyle())
+                                .accessibilityAddTraits(isSelected ? .isSelected : [])
                             }
                         }
-                        .pickerStyle(.segmented)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -486,38 +547,11 @@ struct RecordFlowView: View {
         }
     }
 
-    private var standardValueFields: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("\(selectedType.valueTitle) · \(unitText)")
-                    .font(.rounded(15, weight: .black))
-                    .foregroundStyle(Color.fieldLabelInk)
-
-                AppTextField(placeholder: valuePlaceholder, text: $valueText, keyboardType: .decimalPad, focus: $isValueFocused)
-
-                if let selectedTemplate {
-                    ValueDefaultChip(text: selectedTemplate.defaultValueText, fill: selectedTemplate.displayColor.opacity(0.34))
-                }
-            }
-        }
-    }
-
+    /// Working the calories out from the local food table instead of typing them.
     private var foodDatabaseFields: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("热量 · kcal")
-                    .font(.rounded(15, weight: .black))
-                    .foregroundStyle(Color.fieldLabelInk)
-
-                AppTextField(placeholder: valuePlaceholder, text: $valueText, keyboardType: .decimalPad, focus: $isValueFocused)
-
-                if let selectedTemplate {
-                    ValueDefaultChip(text: selectedTemplate.defaultValueText, fill: selectedTemplate.displayColor.opacity(0.34))
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                    Text("本地食物库")
+                Text("本地食物库")
                     .font(.rounded(15, weight: .black))
                     .foregroundStyle(Color.fieldLabelInk)
 
@@ -529,7 +563,7 @@ struct RecordFlowView: View {
                         TypeIcon(type: .food, size: 42)
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(selectedFood?.name ?? "从本地食物库精确计算")
+                            Text(selectedFood?.name ?? "按克数精确计算")
                                 .font(.rounded(17, weight: .black))
                                 .foregroundStyle(Color.ink)
 
@@ -560,6 +594,7 @@ struct RecordFlowView: View {
 
                     AppTextField(placeholder: "例如 150", text: $servingGramsText, keyboardType: .decimalPad, focus: $isServingFocused)
                         .onChange(of: servingGramsText) { _, _ in
+                            guard selectedFood != nil else { return }
                             valueText = calculatedFoodCalories > 0 ? calculatedFoodCalories.cleanString : ""
                         }
 
@@ -576,49 +611,58 @@ struct RecordFlowView: View {
                     }
                 }
             }
-
-            HStack {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("本次热量")
-                        .font(.rounded(12, weight: .black))
-                        .foregroundStyle(Color.secondaryInk)
-                    Text(effectiveValue > 0 ? effectiveValue.calorieString : "选择道具或填写热量")
-                        .font(.rounded(18, weight: .black))
-                        .foregroundStyle(Color.ink)
-                }
-
-                Spacer()
-            }
-            .padding(14)
-            .background(Color.softBlockColor(for: .food))
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
     }
 
     private var decisionCard: some View {
-        PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 16) {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("4. 现在就决定")
-                    .font(.rounded(20, weight: .black))
-                    .foregroundStyle(Color.ink)
+        VStack(spacing: 10) {
+            Button {
+                save(status: .resisted)
+            } label: {
+                DecisionButtonLabel(title: "我忍住了", subtitle: "", systemImage: "checkmark.circle.fill", tint: .punchGreen, fill: .punchBlack, isDark: true)
+            }
+            .buttonStyle(PressableScaleStyle())
+            .disabled(!canSave(.resisted))
+            .opacity(canSave(.resisted) ? 1 : 0.45)
 
-                Button {
-                    save(status: .resisted)
-                } label: {
-                    DecisionButtonLabel(title: "我忍住了", subtitle: "", systemImage: "checkmark.circle.fill", tint: .punchGreen, fill: .punchBlack, isDark: true)
-                }
-                .buttonStyle(PressableScaleStyle())
-                .disabled(!canSave(.resisted))
-                .opacity(canSave(.resisted) ? 1 : 0.45)
+            Button {
+                save(status: .gaveIn)
+            } label: {
+                DecisionButtonLabel(title: "我还是做了", subtitle: "", systemImage: "eye.fill", tint: .cream, fill: .cardBackground)
+            }
+            .buttonStyle(PressableScaleStyle())
+            .disabled(!canSave(.gaveIn))
+            .opacity(canSave(.gaveIn) ? 1 : 0.45)
 
-                Button {
-                    save(status: .gaveIn)
-                } label: {
-                    DecisionButtonLabel(title: "我还是做了", subtitle: "", systemImage: "eye.fill", tint: .secondaryInk, fill: .cream)
+            Button {
+                save(status: .pending)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "archivebox.fill")
+                    Text("放进冷静箱 · \(cooldownDurationText)")
                 }
-                .buttonStyle(PressableScaleStyle())
-                .disabled(!canSave(.gaveIn))
-                .opacity(canSave(.gaveIn) ? 1 : 0.45)
+                .font(.rounded(15, weight: .black))
+                .foregroundStyle(Color.punchBlack)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.softBlockColor(for: selectedType))
+                .clipShape(Capsule())
+            }
+            .buttonStyle(PressableScaleStyle())
+            .disabled(!canSave(.pending))
+            .opacity(canSave(.pending) ? 1 : 0.45)
+            .accessibilityIdentifier("recordPendingButton")
+        }
+    }
+
+    private func toggleAllTemplates() {
+        dismissInput()
+        AppHaptics.lightTap()
+        if reduceMotion {
+            isShowingAllTemplates.toggle()
+        } else {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                isShowingAllTemplates.toggle()
             }
         }
     }
@@ -626,34 +670,18 @@ struct RecordFlowView: View {
     @ViewBuilder
     private var goalPicker: some View {
         if !filteredGoals.isEmpty {
-            HStack {
-                Text("投向目标")
-                    .font(.rounded(15, weight: .black))
-                    .foregroundStyle(Color.fieldLabelInk)
-                    .fixedSize()
-                Spacer(minLength: 8)
-                Picker("投向目标", selection: Binding(
-                    get: { selectedGoalId },
-                    set: { selectedGoalId = $0; hasChosenGoal = true; dismissInput() }
-                )) {
-                    Text("暂不关联").tag(UUID?.none)
-                    ForEach(filteredGoals) { goal in
-                        Text(goal.title).tag(Optional(goal.id))
-                    }
-                }
-                .pickerStyle(.menu)
-                .tint(Color.punchBlack)
-                .labelsHidden()
-                .accessibilityIdentifier("recordGoalPicker")
+            GoalMenuRow(goals: filteredGoals, selection: $selectedGoalId) {
+                hasChosenGoal = true
+                dismissInput()
             }
         }
     }
 
     private var valuePlaceholder: String {
         switch selectedType {
-        case .money: "例如 100"
-        case .food: selectedTemplate?.defaultValue.map { "默认 \($0.cleanString)，可修改" } ?? "例如 420"
-        case .time: "例如 60"
+        case .money: "例如 100，可以先不填"
+        case .food: selectedTemplate?.defaultValue.map { "默认 \($0.cleanString)，可修改" } ?? "例如 420，可以先不填"
+        case .time: "例如 60，可以先不填"
         }
     }
 
@@ -671,12 +699,12 @@ struct RecordFlowView: View {
 
     private var selectedFoodDetailText: String {
         guard let selectedFood else {
-            return selectedTemplate?.defaultValueText ?? "kcal / 100g"
+            return "从食物库里选，再填克数"
         }
 
         var parts = [
             "\(Int(selectedFood.energyKcalPer100g.rounded())) kcal / 100g",
-            selectedFood.sourceName
+            FoodSeedData.displaySource(selectedFood.sourceName)
         ]
 
         if let state = selectedFood.state {
@@ -766,12 +794,13 @@ struct RecordFlowView: View {
         title = ""
         valueText = ""
         note = ""
+        selectedReason = ""
         selectedGoalId = nil
         hasChosenGoal = false
         synchronizeGoalSelection()
         selectedTemplate = nil
         isCustomPropSelected = false
-        isPropPickerExpanded = false
+        isShowingAllTemplates = false
         isDetailsExpanded = false
         customImage = nil
         customImageSource = nil
@@ -806,7 +835,6 @@ struct RecordFlowView: View {
                 title = ""
             }
             valueText = ""
-            isPropPickerExpanded = false
             return
         }
 
@@ -818,18 +846,6 @@ struct RecordFlowView: View {
         servingGramsText = ""
         title = template.title
         valueText = template.defaultValue?.cleanString ?? ""
-        isPropPickerExpanded = false
-    }
-
-    private func togglePropPicker() {
-        dismissInput()
-        if reduceMotion {
-            isPropPickerExpanded.toggle()
-        } else {
-            withAnimation(.spring(response: 0.24, dampingFraction: 0.78)) {
-                isPropPickerExpanded.toggle()
-            }
-        }
     }
 
     private func toggleCustomProp() {
@@ -852,7 +868,7 @@ struct RecordFlowView: View {
         if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || PropTemplate.templates(for: selectedType).contains(where: { $0.title == title }) {
             title = ""
         }
-        pulseIntro(.curious)
+        pulseIntro()
     }
 
     private func openCustomImageSource(_ source: CustomImageSource) {
@@ -871,8 +887,8 @@ struct RecordFlowView: View {
         }
     }
 
-    private func pulseIntro(_ expression: DynamicMascotExpression, reaction: MascotReaction = .acknowledge) {
-        introExpression = expression
+    /// Sets off a reaction on the three type badges.
+    private func pulseIntro(_ reaction: MascotReaction = .acknowledge) {
         introReaction = reaction
         introReactionToken += 1
     }

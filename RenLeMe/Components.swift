@@ -23,14 +23,13 @@ enum MascotMoment: Equatable {
     case coolingRecord
     case assetPositive(ResistType)
     case goalProgress(progress: Double, type: ResistType)
-    case goalCompleted(ResistType)
     case reviewCalm
 
     var color: Color {
         switch self {
         case .idle, .resistedSuccess, .reviewCalm:
             .punchGreen
-        case .choosing(let type), .assetPositive(let type), .goalProgress(_, let type), .goalCompleted(let type):
+        case .choosing(let type), .assetPositive(let type), .goalProgress(_, let type):
             type.v2MascotColor
         case .coolingSaved, .coolingRecord:
             .punchYellow
@@ -57,8 +56,6 @@ enum MascotMoment: Equatable {
             type == .food ? .relieved : .proud
         case .goalProgress(let progress, _):
             progress > 0 ? .proud : .steady
-        case .goalCompleted:
-            .relieved
         case .reviewCalm:
             .relieved
         }
@@ -66,7 +63,7 @@ enum MascotMoment: Equatable {
 
     var reaction: MascotReaction? {
         switch self {
-        case .resistedSuccess, .goalCompleted: .celebrate
+        case .resistedSuccess: .celebrate
         case .coolingSaved: .waiting
         case .gaveInSaved: .acknowledge
         default: nil
@@ -81,8 +78,6 @@ enum MascotMoment: Equatable {
             "先冷静"
         case .gaveInSaved:
             "看见了"
-        case .goalCompleted:
-            "目标完成"
         default:
             ""
         }
@@ -96,8 +91,6 @@ enum MascotMoment: Equatable {
             "已放入冷静箱"
         case .gaveInSaved:
             "已记录"
-        case .goalCompleted:
-            "已完成"
         default:
             ""
         }
@@ -105,7 +98,7 @@ enum MascotMoment: Equatable {
 
     var feedbackFill: Color {
         switch self {
-        case .resistedSuccess, .goalCompleted:
+        case .resistedSuccess:
             .punchGreen
         case .coolingSaved:
             .punchYellow
@@ -917,17 +910,17 @@ struct PropIconView: View {
     }
 }
 
-private struct CartoonPropGlyphView: View {
+struct CartoonPropGlyphView: View {
     let iconKey: PropIconKey
     var size: CGFloat
 
-    private var line: CGFloat { max(3, size * 0.074) }
-    private var thinLine: CGFloat { max(2, size * 0.052) }
-    private var cream: Color { .softCream }
-    private var pink: Color { .punchPink }
-    private var green: Color { .punchGreen }
-    private var yellow: Color { .punchYellow }
-    private var black: Color { .punchBlack }
+    var line: CGFloat { max(3, size * 0.074) }
+    var thinLine: CGFloat { max(2, size * 0.052) }
+    var cream: Color { .softCream }
+    var pink: Color { .punchPink }
+    var green: Color { .punchGreen }
+    var yellow: Color { .punchYellow }
+    var black: Color { .punchBlack }
 
     var body: some View {
         ZStack {
@@ -996,6 +989,78 @@ private struct CartoonPropGlyphView: View {
                 travel
             case .course:
                 course
+            case .cola:
+                cola
+            case .beer:
+                beer
+            case .fries:
+                fries
+            case .chocolate:
+                chocolate
+            case .spicyStrips:
+                spicyStrips
+            case .burger:
+                burger
+            case .instantNoodles:
+                instantNoodles
+            case .pizza:
+                pizza
+            case .hotpot:
+                hotpot
+            case .malatang:
+                malatang
+            case .lateNight:
+                lateNight
+            case .iceCream:
+                iceCream
+            case .eggTart:
+                eggTart
+            case .donut:
+                donut
+            case .cake:
+                cake
+            case .bbq:
+                bbq
+            case .chips:
+                chips
+            case .shoppingApp:
+                shoppingApp
+            case .livestream:
+                livestream
+            case .novel:
+                novel
+            case .slacking:
+                slacking
+            case .lieIn:
+                lieIn
+            case .social:
+                social
+            case .gameTopUp:
+                gameTopUp
+            case .liveGift:
+                liveGift
+            case .headphones:
+                headphones
+            case .keyboard:
+                keyboard
+            case .figure:
+                figure
+            case .coffee:
+                coffee
+            case .homeGoods:
+                homeGoods
+            case .stockUp:
+                stockUp
+            case .petGoods:
+                petGoods
+            case .taxi:
+                taxi
+            case .ticket:
+                ticket
+            case .book:
+                book
+            case .gymCard:
+                gymCard
             }
         }
         .frame(width: size, height: size)
@@ -1430,7 +1495,7 @@ private struct CartoonPropGlyphView: View {
         }
     }
 
-    private func roundedBox(width: CGFloat, height: CGFloat, corner: CGFloat, fill: Color) -> some View {
+    func roundedBox(width: CGFloat, height: CGFloat, corner: CGFloat, fill: Color) -> some View {
         RoundedRectangle(cornerRadius: size * corner, style: .continuous)
             .fill(fill)
             .overlay {
@@ -1440,7 +1505,7 @@ private struct CartoonPropGlyphView: View {
             .frame(width: size * width, height: size * height)
     }
 
-    private func lineCapsule(width: CGFloat, height: CGFloat, color: Color = .punchBlack) -> some View {
+    func lineCapsule(width: CGFloat, height: CGFloat, color: Color = .punchBlack) -> some View {
         Capsule()
             .fill(color)
             .frame(width: size * width, height: max(thinLine, size * height))
@@ -1456,7 +1521,7 @@ private struct CartoonPropGlyphView: View {
             .frame(width: size * 0.10, height: size * height)
     }
 
-    private var plusGlyph: some View {
+    var plusGlyph: some View {
         ZStack {
             lineCapsule(width: 0.20, height: 0.055)
             lineCapsule(width: 0.20, height: 0.055)
@@ -1464,7 +1529,7 @@ private struct CartoonPropGlyphView: View {
         }
     }
 
-    private var plusBadge: some View {
+    var plusBadge: some View {
         Circle()
             .fill(pink)
             .overlay(Circle().stroke(black, lineWidth: thinLine))
@@ -1484,7 +1549,7 @@ private struct CartoonPropGlyphView: View {
         .stroke(black, style: StrokeStyle(lineWidth: thinLine, lineCap: .round, lineJoin: .round))
     }
 
-    private func face(y: CGFloat) -> some View {
+    func face(y: CGFloat) -> some View {
         ZStack {
             Circle().fill(black).frame(width: size * 0.055).offset(x: -size * 0.10, y: y)
             Circle().fill(black).frame(width: size * 0.055).offset(x: size * 0.10, y: y)
@@ -1493,7 +1558,7 @@ private struct CartoonPropGlyphView: View {
         }
     }
 
-    private func triangle(fill: Color, stroke: Bool) -> some View {
+    func triangle(fill: Color, stroke: Bool) -> some View {
         TriangleShape()
             .fill(fill)
             .overlay {
@@ -1536,7 +1601,7 @@ private struct StarShape: Shape {
     }
 }
 
-private struct TriangleShape: Shape {
+struct TriangleShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         path.move(to: CGPoint(x: rect.minX, y: rect.minY))
@@ -1547,7 +1612,7 @@ private struct TriangleShape: Shape {
     }
 }
 
-private struct TaperedCupShape: Shape {
+struct TaperedCupShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         path.move(to: CGPoint(x: rect.minX + rect.width * 0.12, y: rect.minY))
@@ -1559,7 +1624,7 @@ private struct TaperedCupShape: Shape {
     }
 }
 
-private struct CrescentShape: Shape {
+struct CrescentShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         path.addArc(center: CGPoint(x: rect.midX, y: rect.midY), radius: rect.width * 0.42, startAngle: .degrees(104), endAngle: .degrees(256), clockwise: false)
@@ -1676,113 +1741,6 @@ private struct CapShape: Shape {
         path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
         path.closeSubpath()
         return path
-    }
-}
-
-struct ValueDefaultChip: View {
-    let text: String
-    var fill: Color = .cream
-
-    var body: some View {
-        Text(text)
-            .font(.rounded(11, weight: .black))
-            .foregroundStyle(Color.punchBlack)
-            .lineLimit(1)
-            .minimumScaleFactor(0.72)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
-            .background(fill)
-            .clipShape(Capsule())
-    }
-}
-
-struct PropCard: View {
-    let template: PropTemplate
-    var isSelected = false
-    var compact = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 8 : 10) {
-            PropIconView(template: template, size: compact ? 48 : 58)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(template.title)
-                    .font(.rounded(compact ? 14 : 16, weight: .black))
-                    .foregroundStyle(Color.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.74)
-
-                Text(template.caption)
-                    .font(.rounded(11, weight: .bold))
-                    .foregroundStyle(Color.secondaryInk)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-            }
-
-            if !compact {
-                ValueDefaultChip(text: template.defaultValueText, fill: template.displayColor.opacity(0.34))
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: compact ? 120 : 154, alignment: .topLeading)
-        .padding(compact ? 11 : 12)
-        .background(Color.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(isSelected ? Color.punchBlack : Color.clear, lineWidth: isSelected ? 3 : 0)
-        }
-        .shadow(color: .punchBlack.opacity(isSelected ? 0.15 : 0.08), radius: 0, x: 0, y: isSelected ? 6 : 3)
-    }
-}
-
-struct CustomPropCard: View {
-    let type: ResistType
-    var selectedImage: UIImage?
-    var isSelected = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ZStack {
-                if let selectedImage {
-                    Image(uiImage: selectedImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 58, height: 58)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color.punchBlack, lineWidth: 3)
-                        }
-                } else {
-                    PropIconView(template: PropTemplate.customFallbackTemplate(for: type), size: 58)
-                }
-
-                Circle()
-                    .fill(Color.punchBlack)
-                    .frame(width: 22, height: 22)
-                    .overlay {
-                        Image(systemName: "plus")
-                            .font(.rounded(12, weight: .black))
-                            .foregroundStyle(Color.white)
-                    }
-                    .offset(x: 24, y: 24)
-            }
-
-            Text("自选")
-                .font(.rounded(16, weight: .black))
-                .foregroundStyle(Color.ink)
-
-            ValueDefaultChip(text: "可拍照 / 相册", fill: Color.softBlockColor(for: type))
-        }
-        .frame(maxWidth: .infinity, minHeight: 154, alignment: .topLeading)
-        .padding(12)
-        .background(Color.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(isSelected ? Color.punchBlack : Color.clear, lineWidth: isSelected ? 3 : 0)
-        }
-        .shadow(color: .punchBlack.opacity(isSelected ? 0.15 : 0.08), radius: 0, x: 0, y: isSelected ? 6 : 3)
     }
 }
 
@@ -1912,11 +1870,14 @@ struct AssetBlockCard: View {
                         )
                     }
 
-                    Text(value)
-                        .font(.rounded(28, weight: .black))
-                        .foregroundStyle(type == .time ? Color.punchBlack : .white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.58)
+                    Settled(value: value) { value in
+                        Text(value)
+                            .font(.rounded(28, weight: .black))
+                            .foregroundStyle(type == .time ? Color.punchBlack : .white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.58)
+                            .contentTransition(.numericText())
+                    }
 
                     if !subtitle.isEmpty {
                         Text(subtitle)
@@ -2369,5 +2330,116 @@ private struct CooldownValueSheet: View {
     private func finish(with value: Double?) {
         UIApplication.shared.dismissKeyboard()
         onComplete(value)
+    }
+}
+
+/// Holds a value still while its page is covered or off screen, then lets it change, animated, once the
+/// page is back in view — so a number rolls and a bar grows in front of the user instead of having
+/// already jumped while they were looking at something else.
+struct Settled<Value: Equatable, Content: View>: View {
+    @Environment(\.mascotMotionEnabled) private var isUncovered
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let value: Value
+    @ViewBuilder var content: (Value) -> Content
+    @State private var shown: Value?
+    @State private var isOnScreen = false
+
+    var body: some View {
+        content(shown ?? value)
+            .onAppear {
+                isOnScreen = true
+                settle()
+            }
+            .onDisappear { isOnScreen = false }
+            .onChange(of: value) { settle() }
+            .onChange(of: isUncovered) { settle() }
+    }
+
+    private func settle() {
+        guard isOnScreen, isUncovered, shown != value else { return }
+        if shown == nil || reduceMotion {
+            shown = value
+        } else {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.82).delay(0.3)) {
+                shown = value
+            }
+        }
+    }
+}
+
+extension View {
+    /// Marks the row a detail page grows out of. On iOS 17 the page is pushed as usual.
+    @ViewBuilder
+    func zoomSource(id: some Hashable, in namespace: Namespace.ID) -> some View {
+        if #available(iOS 18.0, *) {
+            matchedTransitionSource(id: id, in: namespace)
+        } else {
+            self
+        }
+    }
+
+    /// The page that grows out of the row marked with the same id, and shrinks back into it.
+    @ViewBuilder
+    func zoomDestination(id: some Hashable, in namespace: Namespace.ID) -> some View {
+        if #available(iOS 18.0, *) {
+            navigationTransition(.zoom(sourceID: id, in: namespace))
+        } else {
+            self
+        }
+    }
+}
+
+/// "投向目标" with the chosen goal on the right. The system picker draws its label in the system
+/// font, which sits oddly among the app's rounded type, so the label is drawn here and only the
+/// pop-up list is the system's.
+struct GoalMenuRow: View {
+    let goals: [Goal]
+    @Binding var selection: UUID?
+    var labelColor: Color = .secondaryInk
+    var fill: Color = .cream
+    var onPick: () -> Void = {}
+
+    private var selectedTitle: String {
+        goals.first { $0.id == selection }?.title ?? "暂不关联"
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("投向目标")
+                .font(.rounded(15, weight: .black))
+                .foregroundStyle(labelColor)
+                .fixedSize()
+
+            Spacer(minLength: 8)
+
+            Menu {
+                Picker("投向目标", selection: Binding(
+                    get: { selection },
+                    set: { selection = $0; onPick() }
+                )) {
+                    Text("暂不关联").tag(UUID?.none)
+                    ForEach(goals) { goal in
+                        Text(goal.title).tag(Optional(goal.id))
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(selectedTitle)
+                        .font(.rounded(15, weight: .black))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.rounded(11, weight: .black))
+                }
+                .foregroundStyle(Color.punchBlack)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(fill)
+                .clipShape(Capsule())
+            }
+            .accessibilityIdentifier("recordGoalPicker")
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("投向目标，\(selectedTitle)")
     }
 }

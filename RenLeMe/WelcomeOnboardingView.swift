@@ -394,8 +394,6 @@ enum DynamicMascotExpression: Equatable {
             self = type == .food ? .relieved : .sparkle
         case .goalProgress(let progress, _):
             self = progress > 0 ? .proud : .curious
-        case .goalCompleted:
-            self = .touched
         case .reviewCalm:
             self = .relieved
         }

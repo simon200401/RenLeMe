@@ -30,7 +30,8 @@ struct EditRecordView: View {
     }
 
     private var filteredGoals: [Goal] {
-        goals.filter { $0.type == record.type }
+        // A record already in a shelved goal keeps it as a choice; otherwise only goals on the board.
+        goals.filter { $0.type == record.type && (!$0.isAchieved || $0.id == record.goalId) }
     }
 
     private var parsedValue: Double {
@@ -50,10 +51,9 @@ struct EditRecordView: View {
         return selectedFoodEnergyKcalPer100g * parsedServingGrams / 100
     }
 
+    /// The amount is optional everywhere; a record without one shows "待补充".
     private var canSave: Bool {
-        let hasTitle = !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let hasValue = record.type == .food ? max(calculatedFoodCalories, parsedValue) > 0 : parsedValue > 0
-        return hasTitle && (selectedStatus == .pending || hasValue)
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -62,18 +62,6 @@ struct EditRecordView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    PunchyCard(fill: Color.blockColor(for: record.type), cornerRadius: 34, padding: 20) {
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Edit")
-                                    .font(.rounded(42, weight: .black))
-                                    .foregroundStyle(record.type == .time ? Color.punchBlack : .white)
-                            }
-                            Spacer()
-                            MascotMomentView(moment: record.status.mascotMoment, size: 78)
-                        }
-                    }
-
                     PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 16) {
                         VStack(alignment: .leading, spacing: 16) {
                             if record.type == .food {
@@ -86,12 +74,7 @@ struct EditRecordView: View {
                             reasonGroup
 
                             if !filteredGoals.isEmpty {
-                                Picker("投向目标", selection: $selectedGoalId) {
-                                    Text("暂不关联").tag(UUID?.none)
-                                    ForEach(filteredGoals) { goal in
-                                        Text(goal.title).tag(Optional(goal.id))
-                                    }
-                                }
+                                GoalMenuRow(goals: filteredGoals, selection: $selectedGoalId)
                             }
 
                             labeledField("备注") {
@@ -197,31 +180,33 @@ struct EditRecordView: View {
                 .buttonStyle(PressableScaleStyle())
             }
 
-            labeledField("这次的份量 · g") {
-                TextField("例如 150", text: $servingGramsText)
+            // Always typed or shown here, so a record with no food-table entry can still be given a number.
+            labeledField("热量 · kcal") {
+                TextField("例如 420", text: $valueText)
                     .appInputTextStyle()
                     .keyboardType(.decimalPad)
-                    .onChange(of: servingGramsText) { _, _ in
-                        valueText = calculatedFoodCalories > 0 ? calculatedFoodCalories.cleanString : valueText
-                    }
             }
 
-            HStack {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("本次热量")
-                        .font(.rounded(12, weight: .black))
-                        .foregroundStyle(Color.secondaryInk)
-                    Text(calculatedFoodCalories > 0 ? calculatedFoodCalories.calorieString : valueText.calorieFallbackText)
-                        .font(.rounded(18, weight: .black))
-                        .foregroundStyle(Color.ink)
+            // Grams only mean something once there is a per-100g figure to multiply by.
+            if selectedFoodEnergyKcalPer100g > 0 {
+                labeledField("这次的份量 · g，填了自动算热量") {
+                    TextField("例如 150", text: $servingGramsText)
+                        .appInputTextStyle()
+                        .keyboardType(.decimalPad)
+                        .onChange(of: servingGramsText) { _, _ in
+                            if calculatedFoodCalories > 0 {
+                                valueText = calculatedFoodCalories.cleanString
+                            }
+                        }
                 }
-
-                Spacer()
             }
-            .padding(14)
-            .background(Color.softBlockColor(for: .food))
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
+    }
+
+    /// The current list, plus this record's own reason if it was saved from an older list.
+    private var reasonOptions: [String] {
+        let current = record.type.reasons
+        return record.reason.isEmpty || current.contains(record.reason) ? current : current + [record.reason]
     }
 
     private var reasonGroup: some View {
@@ -230,10 +215,11 @@ struct EditRecordView: View {
                 .font(.rounded(15, weight: .black))
                 .foregroundStyle(Color.secondaryInk)
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(record.type.reasons, id: \.self) { reason in
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 88), spacing: 8)], alignment: .leading, spacing: 8) {
+                ForEach(reasonOptions, id: \.self) { reason in
                     Button {
-                        selectedReason = reason
+                        // Tapping the chosen one again clears it.
+                        selectedReason = selectedReason == reason ? "" : reason
                     } label: {
                         Text(reason)
                             .font(.rounded(14, weight: .black))
@@ -293,14 +279,14 @@ struct EditRecordView: View {
 
     private var foodSourceText: String {
         if let selectedFood {
-            return "\(Int(selectedFood.energyKcalPer100g.rounded())) kcal / 100g · \(selectedFood.sourceName)"
+            return "\(Int(selectedFood.energyKcalPer100g.rounded())) kcal / 100g · \(FoodSeedData.displaySource(selectedFood.sourceName))"
         }
 
         if let energy = record.foodEnergyKcalPer100g, let source = record.foodSourceName {
-            return "\(energy.cleanString) kcal / 100g · \(source)"
+            return "\(energy.cleanString) kcal / 100g · \(FoodSeedData.displaySource(source))"
         }
 
-        return "可以重新从本地食物库选择。"
+        return "从食物库选，可按克数计算"
     }
 
     private func save() {
@@ -330,9 +316,9 @@ struct EditRecordView: View {
         }
 
         if record.type == .food {
-            record.value = calculatedFoodCalories > 0 ? calculatedFoodCalories : parsedValue
+            record.value = parsedValue
             record.hasEstimatedValue = record.value > 0
-            record.foodServingGrams = parsedServingGrams > 0 ? parsedServingGrams : nil
+            record.foodServingGrams = parsedServingGrams > 0 && selectedFoodEnergyKcalPer100g > 0 ? parsedServingGrams : nil
             if let selectedFood {
                 record.foodNutritionItemId = selectedFood.id
                 record.foodSourceName = selectedFood.sourceName
@@ -357,13 +343,3 @@ private protocol StatusTitle {
 }
 
 extension ResistStatus: StatusTitle {}
-
-private extension String {
-    var calorieFallbackText: String {
-        guard let value = Double(replacingOccurrences(of: ",", with: "")), value > 0 else {
-            return "填写份量后自动计算"
-        }
-
-        return value.calorieString
-    }
-}
