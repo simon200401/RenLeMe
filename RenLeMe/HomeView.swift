@@ -7,6 +7,8 @@ struct HomeView: View {
     @Query(sort: \ResistRecord.createdAt, order: .reverse) private var records: [ResistRecord]
     @Query(sort: \Goal.createdAt, order: .forward) private var goals: [Goal]
 
+    @ObservedObject private var guide = OnboardingGuide.shared
+
     /// The kind of urge a new goal is being made for, while the sheet is up.
     @State private var addingGoalType: ResistType?
     @State private var isShowingGrowth = false
@@ -43,7 +45,13 @@ struct HomeView: View {
     let onShowResults: () -> Void
 
     private var todayCount: Int {
-        StatsCalculator.resistedToday(in: records)
+        // The walk-through shows what a day with something in it looks like.
+        isShowingExample ? 1 : StatsCalculator.resistedToday(in: records)
+    }
+
+    /// True while the welcome walk-through is pointing at "Today" and there is nothing real to show.
+    private var isShowingExample: Bool {
+        guide.step == .today && todayResisted.isEmpty
     }
 
     private var pendingRecords: [ResistRecord] {
@@ -232,9 +240,19 @@ struct HomeView: View {
                 .presentationDetents([.fraction(0.7), .large])
                 .presentationDragIndicator(.visible)
         }
-        .sheet(item: $addingGoalType) { type in
+        .sheet(item: $addingGoalType, onDismiss: {
+            // Made or not, the walk-through moves on once the goal sheet is gone.
+            if guide.step == .goalForm { guide.step = .results }
+        }) { type in
             NavigationStack {
                 AddGoalView(initialType: type)
+            }
+        }
+        .onChange(of: guide.step) { _, step in
+            if step == .goalForm {
+                // A goal for the kind of urge just practised, unless there is one already.
+                let practised = guide.practicedType
+                addingGoalType = goals.active.contains { $0.type == practised } ? nextGoalType : practised
             }
         }
     }
@@ -302,6 +320,12 @@ struct HomeView: View {
                         .accessibilityIdentifier("pauseType-\(type.rawValue)")
                     }
                 }
+                // The welcome walk-through lights these up from above the whole app.
+                .onGeometryChange(for: CGRect.self) { proxy in
+                    proxy.frame(in: .global)
+                } action: { frame in
+                    guide.entryFrame = frame
+                }
             }
         }
     }
@@ -341,6 +365,11 @@ struct HomeView: View {
                 .accessibilityIdentifier("mascotGrowthRow")
 
                 todayStrip
+            }
+            .onGeometryChange(for: CGRect.self) { proxy in
+                proxy.frame(in: .global)
+            } action: { frame in
+                guide.statusFrame = frame
             }
 
             Button(action: greetMascot) {
@@ -547,7 +576,20 @@ struct HomeView: View {
     @ViewBuilder
     private var todayStrip: some View {
         let resisted = todayResisted
-        if !resisted.isEmpty {
+        if isShowingExample {
+            HStack(spacing: 8) {
+                PropIconView(template: guide.exampleTemplate, size: 32)
+                Text("示例")
+                    .font(.rounded(12, weight: .black))
+                    .foregroundStyle(Color.secondaryInk)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.punchBlack.opacity(0.07))
+                    .clipShape(Capsule())
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("示例：今天忍住的东西会出现在这里")
+        } else if !resisted.isEmpty {
             HStack(spacing: 6) {
                 ForEach(resisted.prefix(Self.todayIconLimit)) { record in
                     Button {
@@ -619,6 +661,11 @@ struct HomeView: View {
             } else {
                 HomeGoalList(goals: goals, records: records, onTap: onShowResults)
             }
+        }
+        .onGeometryChange(for: CGRect.self) { proxy in
+            proxy.frame(in: .global)
+        } action: { frame in
+            guide.goalFrame = frame
         }
         .padding(.top, 4)
     }

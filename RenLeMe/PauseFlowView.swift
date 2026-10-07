@@ -72,6 +72,14 @@ struct PauseFlowView: View {
     @Query(sort: \ResistRecord.createdAt, order: .reverse) private var records: [ResistRecord]
 
     let type: ResistType
+    /// The walk-through a new user is taken on: the same screens, a shorter count, a hint at each
+    /// step, and nothing written down at the end.
+    var isPractice = false
+
+    /// Three breaths normally; one for the practice run.
+    private var pauseLength: TimeInterval {
+        isPractice ? Self.breathSeconds : Self.pauseSeconds
+    }
 
     @State private var stage: Stage = .pausing
     @State private var pauseStartedAt: Date?
@@ -150,6 +158,17 @@ struct PauseFlowView: View {
                     .accessibilityIdentifier("pauseCloseButton")
 
                     Spacer()
+
+                    if isPractice {
+                        Text("练习 · 这次不会记下来")
+                            .font(.rounded(13, weight: .black))
+                            .foregroundStyle(Color.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .background(Color.punchBlack)
+                            .clipShape(Capsule())
+                            .accessibilityIdentifier("practiceTag")
+                    }
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 14)
@@ -188,7 +207,7 @@ struct PauseFlowView: View {
 
             // Pulses swell through each inhale and stay quiet through the exhale.
             var step = 0
-            while Double(step) * Self.hapticStep < Self.pauseSeconds {
+            while Double(step) * Self.hapticStep < pauseLength {
                 let offset = Double(step) * Self.hapticStep
                 let wait = pauseStartedAt.addingTimeInterval(offset).timeIntervalSinceNow
                 if wait > 0 {
@@ -206,7 +225,7 @@ struct PauseFlowView: View {
                 step += 1
             }
 
-            let remaining = pauseStartedAt.addingTimeInterval(Self.pauseSeconds).timeIntervalSinceNow
+            let remaining = pauseStartedAt.addingTimeInterval(pauseLength).timeIntervalSinceNow
             if remaining > 0 {
                 do {
                     try await Task.sleep(for: .seconds(remaining))
@@ -262,9 +281,9 @@ struct PauseFlowView: View {
         return VStack(spacing: 22) {
             TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isCounting)) { context in
                 let elapsed = pauseStartedAt.map {
-                    min(max(context.date.timeIntervalSince($0), 0), Self.pauseSeconds)
+                    min(max(context.date.timeIntervalSince($0), 0), pauseLength)
                 } ?? 0
-                let remaining = Int((Self.pauseSeconds - elapsed).rounded(.up))
+                let remaining = Int((pauseLength - elapsed).rounded(.up))
                 let breath = isCounting ? Self.breathLevel(at: elapsed) : 0
                 let motion = reduceMotion ? 0 : CGFloat(breath)
 
@@ -276,7 +295,7 @@ struct PauseFlowView: View {
                         Circle()
                             .stroke(pauseForeground.opacity(0.28), lineWidth: 12)
                         Circle()
-                            .trim(from: 0, to: elapsed / Self.pauseSeconds)
+                            .trim(from: 0, to: elapsed / pauseLength)
                             .stroke(pauseForeground, style: StrokeStyle(lineWidth: 12, lineCap: .round))
                             .rotationEffect(.degrees(-90))
 
@@ -321,17 +340,17 @@ struct PauseFlowView: View {
             .padding(.top, isCounting ? 28 : 4)
 
             if !isCounting {
+                if isPractice {
+                    practiceHint("选一个现在\(type.urgeTitle)的", detail: "陪小忍停几秒，看看是真的想要，还是一时冲动。")
+                }
                 itemChips
             } else {
+                // Plain text: in a pill it read as one more thing to tap.
                 Text(recordTitle)
-                    .font(.rounded(20, weight: .black))
-                    .foregroundStyle(Color.punchBlack)
+                    .font(.rounded(22, weight: .black))
+                    .foregroundStyle(pauseForeground)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .padding(.horizontal, 22)
-                    .padding(.vertical, 11)
-                    .background(Color.softCream)
-                    .clipShape(Capsule())
 
                 Button {
                     dismissInput()
@@ -355,7 +374,10 @@ struct PauseFlowView: View {
 
     /// What 小忍 says during the countdown, so the number reads as time to think it over.
     private func pauseLine(elapsed: TimeInterval) -> String {
-        switch elapsed {
+        if isPractice {
+            return elapsed < pauseLength / 2 ? "想一下？" : "快好了"
+        }
+        return switch elapsed {
         case ..<5: "想一下？"
         case ..<10: "真的要\(type.urgeVerb)吗"
         default: "快好了"
@@ -509,7 +531,7 @@ struct PauseFlowView: View {
     private func pauseExpression(elapsed: TimeInterval) -> DynamicMascotExpression {
         guard pauseStartedAt != nil else { return .craving }
         // The last out-breath is the moment the urge lets go.
-        if elapsed >= Self.pauseSeconds - Self.breathSeconds / 2 { return .settled }
+        if elapsed >= pauseLength - Self.breathSeconds / 2 { return .settled }
         return Self.isInhaling(at: elapsed) ? .inhale : .exhale
     }
 
@@ -546,12 +568,17 @@ struct PauseFlowView: View {
             .padding(.top, 8)
             .padding(.bottom, 6)
 
+            if isPractice {
+                practiceHint("选一个，没有对错")
+            }
+
             decisionButton(
                 "我忍住了", systemImage: "checkmark", fill: .punchBlack, foreground: .white,
                 identifier: "decideResisted"
             ) {
                 decidingFace = .proud
                 after(.nod) {
+                    guard !isPractice else { return finishPractice(.resistedSuccess) }
                     valueText = selectedTemplate?.defaultValue?.cleanString ?? ""
                     selectedGoalId = StatsCalculator.suggestedGoalId(for: type, goals: goals, records: records)
                     advance(to: .value)
@@ -564,6 +591,7 @@ struct PauseFlowView: View {
             ) {
                 decidingFace = .cheer
                 after(.nod) {
+                    guard !isPractice else { return finishPractice(.coolingSaved) }
                     save(.pending, value: selectedTemplate?.defaultValue)
                 }
             }
@@ -574,8 +602,53 @@ struct PauseFlowView: View {
             ) {
                 decidingFace = .settled
                 after(.pat) {
+                    guard !isPractice else { return finishPractice(.gaveInSaved) }
                     save(.gaveIn, value: selectedTemplate?.defaultValue)
                 }
+            }
+        }
+    }
+
+    /// A line of guidance for the practice run, sitting in the page rather than floating over it.
+    private func practiceHint(_ title: String, detail: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.rounded(17, weight: .black))
+                .foregroundStyle(Color.punchBlack)
+            if let detail {
+                Text(detail)
+                    .font(.rounded(13, weight: .bold))
+                    .foregroundStyle(Color.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: .punchBlack.opacity(0.14), radius: 0, x: 0, y: 5)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("practiceHint")
+    }
+
+    /// The practice run ends with the same little send-off as the real thing, and saves nothing.
+    private func finishPractice(_ moment: MascotMoment) {
+        guard completionMoment == nil else { return }
+        OnboardingGuide.shared.practicedTemplate = selectedTemplate
+        if moment == .resistedSuccess {
+            AppHaptics.success()
+            completionReaction = type.successReaction
+        } else {
+            AppHaptics.lightTap()
+            completionReaction = nil
+        }
+        completionFace = nil
+        completionMessage = "练习完成，没有记下来"
+        if reduceMotion {
+            completionMoment = moment
+        } else {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                completionMoment = moment
             }
         }
     }

@@ -1,333 +1,328 @@
 import SwiftUI
 
-private enum WelcomeOnboardingStep: Int, CaseIterable {
-    case welcome
-    case home
-    case record
-    case decide
-    case goals
-    case profile
+/// Where a new user is in the welcome walk-through. Rather than describe the app, it has them do the
+/// things the app is for, once: stop on an urge and decide (for practice), see where what they held
+/// back shows up, and give it somewhere to go.
+@MainActor
+final class OnboardingGuide: ObservableObject {
+    static let shared = OnboardingGuide()
 
-    var title: String {
-        switch self {
-        case .welcome:
-            "欢迎来到忍了么"
-        case .home:
-            "冲动来了点忍一下"
-        case .record:
-            "小忍陪你停 15 秒"
-        case .decide:
-            "到点再决定"
-        case .goals:
-            "成果都在这里"
-        case .profile:
-            "复盘不审判"
-        }
+    enum Step {
+        /// One card saying what the app is for.
+        case welcome
+        /// The home screen with only the three ways in lit; tapping one starts the practice run.
+        case pickType
+        /// The practice run is on screen.
+        case practice
+        /// Back on the home screen: the count and the pictures under it, shown with a stand-in.
+        case today
+        /// The goal section, with the offer to make one.
+        case goal
+        /// The new-goal sheet is on screen.
+        case goalForm
+        /// A look at the results tab.
+        case results
+        /// A look at the profile tab.
+        case profile
+        /// The three ways in once more.
+        case done
     }
 
-    var message: String {
-        switch self {
-        case .welcome:
-            "不批评，不催促。"
-        case .home:
-            "选一个类型就开始。"
-        case .record:
-            "点点小忍，等它数完。"
-        case .decide:
-            "忍住、再等等、还是做了。"
-        case .goals:
-            "钱、热量、时间和目标。"
-        case .profile:
-            "统计、成就、冷静箱。"
-        }
-    }
+    @Published var step: Step?
+    /// Where things sit on screen, reported by the home screen.
+    @Published var entryFrame: CGRect = .zero
+    @Published var statusFrame: CGRect = .zero
+    @Published var goalFrame: CGRect = .zero
 
-    var buttonTitle: String {
-        self == .profile ? "开始使用" : "下一步"
-    }
+    /// What the practice run was about, for the stand-in on the home screen and the goal's kind.
+    @Published var practicedType: ResistType = .money
+    @Published var practicedTemplate: PropTemplate?
 
-    var mascotColor: Color {
-        switch self {
-        case .welcome:
-            .punchGreen
-        case .home:
-            Color(red: 1.0, green: 0.949, blue: 0.839)
-        case .record:
-            .punchPink
-        case .decide:
-            .punchYellow
-        case .goals:
-            .punchGreen
-        case .profile:
-            Color(red: 1.0, green: 0.949, blue: 0.839)
-        }
-    }
+    var isActive: Bool { step != nil }
 
-    var expression: DynamicMascotExpression {
-        switch self {
-        case .welcome:
-            .hello
-        case .home:
-            .celebrate
-        case .record:
-            .sparkle
-        case .decide:
-            .thinking
-        case .goals:
-            .proud
-        case .profile:
-            .relieved
-        }
-    }
-
-    var accentText: String {
-        switch self {
-        case .welcome:
-            "看见冲动"
-        case .home:
-            "今天"
-        case .record:
-            "暂停"
-        case .decide:
-            "冷静箱"
-        case .goals:
-            "成果页"
-        case .profile:
-            "我的页"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .welcome:
-            "sparkles"
-        case .home:
-            "pause.circle.fill"
-        case .record:
-            "timer"
-        case .decide:
-            "archivebox.fill"
-        case .goals:
-            "chart.bar.fill"
-        case .profile:
-            "person.crop.circle.fill"
-        }
-    }
-
-    var featureTags: [String] {
-        switch self {
-        case .welcome:
-            ["不羞辱", "有陪伴"]
-        case .home:
-            ["一键开始", "待决定"]
-        case .record:
-            ["15 秒", "可互动"]
-        case .decide:
-            ["忍住", "冷静箱", "没忍住"]
-        case .goals:
-            ["资产", "目标", "记录"]
-        case .profile:
-            ["统计", "成就", "复盘"]
-        }
-    }
-
-    var accentUsesDarkText: Bool {
-        switch self {
-        case .decide, .home, .profile:
-            true
-        default:
-            false
-        }
+    /// The picture shown as an example under "Today" while that step is up.
+    var exampleTemplate: PropTemplate {
+        practicedTemplate ?? PropTemplate.defaultTemplate(for: practicedType)
     }
 }
 
+/// What sits over the app during the walk-through.
 struct WelcomeOnboardingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var selectedStep: WelcomeOnboardingStep = .welcome
+    @ObservedObject private var guide = OnboardingGuide.shared
 
+    /// The walk-through visits the other two tabs and comes back.
+    @Binding var selectedTab: AppTab
     var onFinish: () -> Void
 
-    private var steps: [WelcomeOnboardingStep] {
-        WelcomeOnboardingStep.allCases
+    var body: some View {
+        ZStack {
+            switch guide.step {
+            case .welcome:
+                welcome
+            case .pickType:
+                spotlight(
+                    on: guide.entryFrame,
+                    title: "现在最想忍住哪一类？",
+                    detail: "点一个，我们试一遍。",
+                    secondary: ("跳过", onFinish),
+                    letsTapsThrough: true
+                )
+            case .today:
+                spotlight(
+                    on: guide.statusFrame,
+                    title: "忍住的都在这里",
+                    detail: "今天忍住几次，是哪几件。点图标可以看那条记录。",
+                    primary: ("下一步", { advance(to: .goal) }),
+                    secondary: ("跳过", onFinish)
+                )
+            case .goal:
+                spotlight(
+                    on: guide.goalFrame,
+                    title: "给省下的定个去处",
+                    detail: "比如一次旅行、一台相机。以后每忍住一次，进度就往前走一点。",
+                    primary: ("建一个目标", { advance(to: .goalForm) }),
+                    secondary: ("以后再说", { advance(to: .results) })
+                )
+            case .results:
+                pageIntro(
+                    title: "成果",
+                    detail: "省下的钱、守住的热量、拿回的时间，还有目标的进度，都在这一页。",
+                    next: .profile
+                )
+            case .profile:
+                pageIntro(
+                    title: "我的",
+                    detail: "冷静箱、什么时候最容易心动、提醒和备份，在这一页。",
+                    next: .done
+                )
+            case .done:
+                spotlight(
+                    on: guide.entryFrame,
+                    title: "就是这样",
+                    detail: "冲动来了，先点这里。",
+                    primary: ("开始使用", onFinish)
+                )
+            case .practice, .goalForm, .none:
+                EmptyView()
+            }
+        }
+        .transition(.opacity)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: guide.step)
+        .onChange(of: guide.step) { _, step in
+            switch step {
+            case .results: selectedTab = .results
+            case .profile: selectedTab = .profile
+            case .done: selectedTab = .home
+            default: break
+            }
+        }
     }
 
-    var body: some View {
+    private func advance(to step: OnboardingGuide.Step) {
+        AppHaptics.lightTap()
+        guide.step = step
+    }
+
+    // MARK: One card
+
+    private var welcome: some View {
         ZStack {
             Color.punchBlack.opacity(0.34)
                 .ignoresSafeArea()
 
             VStack(spacing: 18) {
-                header
-                contentCard
-                controls
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 20)
-            .frame(maxWidth: 390)
-        }
-        .transition(.opacity.combined(with: .scale(scale: 0.94)))
-    }
+                PunchyCard(fill: .cream, cornerRadius: 36, padding: 24) {
+                    VStack(spacing: 16) {
+                        AnimatedXiaoRenView(
+                            color: Color(red: 1.0, green: 0.949, blue: 0.839),
+                            expression: .hello,
+                            size: 150,
+                            reduceMotion: reduceMotion,
+                            reaction: .greeting,
+                            allowsIdleMotion: true
+                        )
 
-    private var header: some View {
-        HStack {
-            Text("新手引导")
-                .font(.rounded(18, weight: .black))
-                .foregroundStyle(Color.white)
+                        Text("想要的时候，\n先停 15 秒")
+                            .font(.rounded(30, weight: .black))
+                            .foregroundStyle(Color.ink)
+                            .multilineTextAlignment(.center)
 
-            Spacer()
-
-            Button {
-                onFinish()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.rounded(13, weight: .black))
-                    .foregroundStyle(Color.punchBlack)
-                    .frame(width: 34, height: 34)
-                    .background(Color.white)
-                    .clipShape(Circle())
-            }
-            .buttonStyle(PressableScaleStyle())
-            .accessibilityLabel("关闭新手引导")
-        }
-    }
-
-    private var contentCard: some View {
-        PunchyCard(fill: .cream, cornerRadius: 36, padding: 20) {
-            VStack(spacing: 16) {
-                AnimatedXiaoRenView(
-                    color: selectedStep.mascotColor,
-                    expression: selectedStep.expression,
-                    size: 142,
-                    reduceMotion: reduceMotion,
-                    reaction: selectedStep == .welcome ? .greeting : (selectedStep == .home ? .celebrate : .acknowledge),
-                    allowsIdleMotion: true
-                )
-                .id(selectedStep)
-                .transition(.scale(scale: 0.86).combined(with: .opacity))
-
-                VStack(spacing: 10) {
-                    Text(selectedStep.title)
-                        .font(.rounded(30, weight: .black))
-                        .foregroundStyle(Color.ink)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.72)
-
-                    Text(selectedStep.message)
-                        .font(.rounded(17, weight: .black))
-                        .foregroundStyle(Color.secondaryInk)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                pageCue
-
-                Text(selectedStep.accentText)
-                    .font(.rounded(15, weight: .black))
-                    .foregroundStyle(selectedStep.accentUsesDarkText ? Color.punchBlack : Color.white)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 10)
-                    .background(selectedStep.mascotColor)
-                    .clipShape(Capsule())
-            }
-        }
-    }
-
-    private var pageCue: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                Image(systemName: selectedStep.systemImage)
-                    .font(.rounded(17, weight: .black))
-                    .foregroundStyle(Color.punchBlack)
-                    .frame(width: 38, height: 38)
-                    .background(selectedStep.mascotColor.opacity(0.28))
-                    .clipShape(Circle())
-
-                Text(selectedStep.accentText)
-                    .font(.rounded(17, weight: .black))
-                    .foregroundStyle(Color.ink)
-
-                Spacer(minLength: 0)
-            }
-
-            HStack(spacing: 8) {
-                ForEach(selectedStep.featureTags, id: \.self) { tag in
-                    Text(tag)
-                        .font(.rounded(12, weight: .black))
-                        .foregroundStyle(Color.secondaryInk)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.78)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                        .background(Color.white)
-                        .clipShape(Capsule())
-                }
-
-                Spacer(minLength: 0)
-            }
-        }
-        .padding(12)
-        .background(Color.softCream)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-
-    private var controls: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 8) {
-                ForEach(steps, id: \.self) { step in
-                    Capsule()
-                        .fill(step == selectedStep ? Color.white : Color.white.opacity(0.36))
-                        .frame(width: step == selectedStep ? 24 : 8, height: 8)
-                }
-            }
-
-            HStack(spacing: 10) {
-                if selectedStep != .welcome {
-                    Button {
-                        moveStep(-1)
-                    } label: {
-                        Image(systemName: "chevron.left")
+                        Text("想买、想吃、想玩，都可以。\n不批评，不催促，小忍陪你等。")
                             .font(.rounded(16, weight: .black))
-                            .foregroundStyle(Color.punchBlack)
-                            .frame(width: 52, height: 52)
-                            .background(Color.white)
-                            .clipShape(Circle())
+                            .foregroundStyle(Color.secondaryInk)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .buttonStyle(PressableScaleStyle())
-                    .accessibilityLabel("上一步")
+                    .frame(maxWidth: .infinity)
                 }
 
                 Button {
-                    if selectedStep == .profile {
-                        onFinish()
-                    } else {
-                        moveStep(1)
-                    }
+                    advance(to: .pickType)
                 } label: {
-                    Text(selectedStep.buttonTitle)
+                    Text("试一次（1 分钟）")
                         .font(.rounded(18, weight: .black))
                         .foregroundStyle(Color.white)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 52)
+                        .frame(height: 54)
                         .background(Color.punchBlack)
                         .clipShape(Capsule())
                 }
                 .buttonStyle(PressableScaleStyle())
+                .accessibilityIdentifier("onboardingTryButton")
+
+                Button("跳过，直接开始", action: onFinish)
+                    .font(.rounded(15, weight: .black))
+                    .foregroundStyle(Color.white)
+                    .padding(.vertical, 6)
+                    .accessibilityIdentifier("onboardingSkipButton")
             }
+            .padding(.horizontal, 22)
+            .frame(maxWidth: 420)
         }
     }
 
-    private func moveStep(_ offset: Int) {
-        guard let index = steps.firstIndex(of: selectedStep) else { return }
-        let newIndex = min(max(index + offset, 0), steps.count - 1)
+    // MARK: A look at another tab
 
-        if reduceMotion {
-            selectedStep = steps[newIndex]
-        } else {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.74)) {
-                selectedStep = steps[newIndex]
+    /// The page itself stays in view, only lightly dimmed; the card sits low, above the tab bar.
+    private func pageIntro(title: String, detail: String, next: OnboardingGuide.Step) -> some View {
+        ZStack(alignment: .bottom) {
+            Color.punchBlack.opacity(0.28)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture {}
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title)
+                    .font(.rounded(18, weight: .black))
+                    .foregroundStyle(Color.punchBlack)
+                Text(detail)
+                    .font(.rounded(14, weight: .bold))
+                    .foregroundStyle(Color.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 16) {
+                    Button {
+                        advance(to: next)
+                    } label: {
+                        Text("下一步")
+                            .font(.rounded(16, weight: .black))
+                            .foregroundStyle(Color.white)
+                            .padding(.horizontal, 22)
+                            .padding(.vertical, 12)
+                            .background(Color.punchBlack)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(PressableScaleStyle())
+                    .accessibilityIdentifier("onboardingPrimaryButton")
+
+                    Button("跳过", action: onFinish)
+                        .font(.rounded(14, weight: .black))
+                        .foregroundStyle(Color.secondaryInk)
+                        .accessibilityIdentifier("onboardingSecondaryButton")
+                }
+                .padding(.top, 4)
+            }
+            .padding(16)
+            .frame(maxWidth: 340, alignment: .leading)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: .punchBlack.opacity(0.2), radius: 0, x: 0, y: 5)
+            .padding(.horizontal, 22)
+            .padding(.bottom, 96)
+        }
+    }
+
+    // MARK: The home screen, with one thing lit
+
+    private typealias Choice = (title: String, action: () -> Void)
+
+    private func spotlight(
+        on frame: CGRect,
+        title: String,
+        detail: String,
+        primary: Choice? = nil,
+        secondary: Choice? = nil,
+        letsTapsThrough: Bool = false
+    ) -> some View {
+        GeometryReader { geometry in
+            // The frame comes in screen coordinates; this layer may start below the top of the screen.
+            let origin = geometry.frame(in: .global).origin
+            let lit = frame
+                .offsetBy(dx: -origin.x, dy: -origin.y)
+                .insetBy(dx: -10, dy: -10)
+            // Something scrolled out of view, or not on this screen at all, cannot be pointed at;
+            // the card then stands on its own in the middle.
+            let canPoint = frame.width > 0 && lit.minY > 0 && lit.maxY < geometry.size.height - 230
+            let hole = canPoint ? lit : .zero
+            let shape = SpotlightShape(hole: hole, cornerRadius: 30)
+            let cardWidth = min(geometry.size.width - 44, 340)
+
+            ZStack(alignment: .topLeading) {
+                shape
+                    .fill(Color.punchBlack.opacity(0.55), style: FillStyle(eoFill: true))
+                    // Outside the hole swallows taps; inside, they reach the buttons underneath when
+                    // that is the point of the step.
+                    .contentShape(letsTapsThrough && canPoint ? AnyShape(shape) : AnyShape(Rectangle()), eoFill: true)
+                    .onTapGesture {}
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(title)
+                        .font(.rounded(18, weight: .black))
+                        .foregroundStyle(Color.punchBlack)
+                    Text(detail)
+                        .font(.rounded(14, weight: .bold))
+                        .foregroundStyle(Color.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 16) {
+                        if let primary {
+                            Button(action: primary.action) {
+                                Text(primary.title)
+                                    .font(.rounded(16, weight: .black))
+                                    .foregroundStyle(Color.white)
+                                    .padding(.horizontal, 22)
+                                    .padding(.vertical, 12)
+                                    .background(Color.punchBlack)
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(PressableScaleStyle())
+                            .accessibilityIdentifier("onboardingPrimaryButton")
+                        }
+
+                        if let secondary {
+                            Button(secondary.title, action: secondary.action)
+                                .font(.rounded(14, weight: .black))
+                                .foregroundStyle(Color.secondaryInk)
+                                .accessibilityIdentifier("onboardingSecondaryButton")
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+                .padding(16)
+                .frame(width: cardWidth, alignment: .leading)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .shadow(color: .punchBlack.opacity(0.2), radius: 0, x: 0, y: 5)
+                .offset(
+                    x: (geometry.size.width - cardWidth) / 2,
+                    y: canPoint ? hole.maxY + 14 : geometry.size.height * 0.38
+                )
             }
         }
+        .ignoresSafeArea()
+    }
+}
+
+/// The whole area with a rounded window cut out of it.
+private struct SpotlightShape: Shape {
+    var hole: CGRect
+    var cornerRadius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path(rect)
+        path.addRoundedRect(in: hole, cornerSize: CGSize(width: cornerRadius, height: cornerRadius), style: .continuous)
+        return path
     }
 }
 
@@ -1005,5 +1000,5 @@ private struct DynamicMascotBody: Shape {
 }
 
 #Preview {
-    WelcomeOnboardingView {}
+    WelcomeOnboardingView(selectedTab: .constant(.home)) {}
 }

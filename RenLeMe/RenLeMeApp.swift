@@ -119,7 +119,9 @@ struct AppRootView: View {
     @ObservedObject private var cloudBackup = CloudBackup.shared
     @State private var pauseType: ResistType?
     @State private var isPresentingRecord = false
-    @State private var isShowingWelcomeOnboarding = false
+    @ObservedObject private var onboarding = OnboardingGuide.shared
+    /// The kind of urge chosen for the practice run in the welcome walk-through.
+    @State private var practiceType: ResistType?
     @State private var isShowingLaunchSplash = true
     @State private var routedCooldownRecord: ResistRecord?
 
@@ -127,7 +129,17 @@ struct AppRootView: View {
         TabView(selection: $selectedTab) {
             NavigationStack {
                 HomeView(
-                    onPause: { pauseType = $0 },
+                    onPause: { type in
+                        // During the welcome walk-through the three ways in start a practice run.
+                        if onboarding.step == .pickType {
+                            onboarding.practicedType = type
+                            onboarding.practicedTemplate = nil
+                            onboarding.step = .practice
+                            practiceType = type
+                        } else {
+                            pauseType = type
+                        }
+                    },
                     onDirectRecord: { isPresentingRecord = true },
                     onShowResults: { selectedTab = .results }
                 )
@@ -157,15 +169,26 @@ struct AppRootView: View {
         }
         .tint(.punchBlack)
         .environment(\.mascotMotionEnabled,
-                     !isShowingLaunchSplash && !isShowingWelcomeOnboarding && pauseType == nil && !isPresentingRecord && routedCooldownRecord == nil)
-        .blur(radius: isShowingWelcomeOnboarding ? 2.4 : 0)
-        .saturation(isShowingWelcomeOnboarding ? 0.58 : 1)
-        .brightness(isShowingWelcomeOnboarding ? -0.05 : 0)
-        .scaleEffect(isShowingWelcomeOnboarding ? 0.985 : 1)
-        .animation(.easeOut(duration: 0.22), value: isShowingWelcomeOnboarding)
+                     !isShowingLaunchSplash && onboarding.step != .welcome && pauseType == nil && practiceType == nil && !isPresentingRecord && routedCooldownRecord == nil)
+        .blur(radius: onboarding.step == .welcome ? 2.4 : 0)
+        .saturation(onboarding.step == .welcome ? 0.58 : 1)
+        .brightness(onboarding.step == .welcome ? -0.05 : 0)
+        .scaleEffect(onboarding.step == .welcome ? 0.985 : 1)
+        .animation(.easeOut(duration: 0.22), value: onboarding.step)
         .sheet(item: $pauseType) { type in
             NavigationStack {
                 PauseFlowView(type: type)
+                    .environment(\.mascotMotionEnabled, true)
+            }
+            .presentationDetents([.large])
+            .interactiveDismissDisabled()
+        }
+        .sheet(item: $practiceType, onDismiss: {
+            // However the practice run ended, the walk-through carries on from the home screen.
+            if onboarding.step == .practice { onboarding.step = .today }
+        }) { type in
+            NavigationStack {
+                PauseFlowView(type: type, isPractice: true)
                     .environment(\.mascotMotionEnabled, true)
             }
             .presentationDetents([.large])
@@ -193,8 +216,8 @@ struct AppRootView: View {
                 .transition(.opacity.combined(with: .scale(scale: 1.02)))
             }
 
-            if isShowingWelcomeOnboarding {
-                WelcomeOnboardingView {
+            if onboarding.isActive {
+                WelcomeOnboardingView(selectedTab: $selectedTab) {
                     finishWelcomeOnboarding()
                 }
                 .zIndex(10)
@@ -215,7 +238,7 @@ struct AppRootView: View {
         .alert(
             "在 iCloud 里找到一份备份",
             isPresented: Binding(
-                get: { cloudBackup.foreign != nil && !isShowingLaunchSplash && !isShowingWelcomeOnboarding },
+                get: { cloudBackup.foreign != nil && !isShowingLaunchSplash && !onboarding.isActive },
                 set: { _ in }
             ),
             presenting: cloudBackup.foreign
@@ -321,6 +344,7 @@ struct AppRootView: View {
 
     private func dismissPresentedFlows() {
         pauseType = nil
+        practiceType = nil
         isPresentingRecord = false
         routedCooldownRecord = nil
     }
@@ -340,17 +364,21 @@ struct AppRootView: View {
     }
 
     private func showWelcomeOnboarding() {
+        // It happens on the home screen, wherever it was asked for from.
+        dismissPresentedFlows()
+        selectedTab = .home
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
-                isShowingWelcomeOnboarding = true
+                onboarding.step = .welcome
             }
         }
     }
 
     private func finishWelcomeOnboarding() {
         didCompleteWelcomeOnboarding = true
+        practiceType = nil
         withAnimation(.spring(response: 0.24, dampingFraction: 0.82)) {
-            isShowingWelcomeOnboarding = false
+            onboarding.step = nil
         }
     }
 
@@ -371,7 +399,8 @@ struct AppRootView: View {
 
         UserDefaults.standard.removeObject(forKey: "renleme.pendingCooldownRoute")
         isShowingLaunchSplash = false
-        isShowingWelcomeOnboarding = false
+        onboarding.step = nil
+        practiceType = nil
         pauseType = nil
         isPresentingRecord = false
         routedCooldownRecord = record
