@@ -1060,10 +1060,11 @@ struct GoalProgressState: Equatable {
 struct RecordRow: View {
     let record: ResistRecord
 
+    /// Colour says what kind of urge it was and nothing else; yellow used to mean both "想玩" and
+    /// "waiting". Waiting is said by the hourglass and the chip.
     private var rowFill: Color {
         switch record.status {
-        case .resisted: Color.softBlockColor(for: record.type)
-        case .pending: Color.punchYellow.opacity(0.82)
+        case .resisted, .pending: Color.softBlockColor(for: record.type)
         case .gaveIn: Color.cardBackground
         }
     }
@@ -1074,11 +1075,19 @@ struct RecordRow: View {
                 RecordPropIconView(record: record, size: 42)
 
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(record.title)
-                        .font(.rounded(17, weight: .black))
-                        .foregroundStyle(Color.ink)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.82)
+                    HStack(spacing: 5) {
+                        if record.status == .pending {
+                            Image(systemName: "hourglass")
+                                .font(.rounded(13, weight: .black))
+                                .foregroundStyle(Color.ink)
+                                .accessibilityHidden(true)
+                        }
+                        Text(record.title)
+                            .font(.rounded(17, weight: .black))
+                            .foregroundStyle(Color.ink)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.82)
+                    }
 
                     Text("\(recordValueText) · \(record.status.title)")
                         .font(.rounded(13, weight: .bold))

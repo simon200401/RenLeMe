@@ -289,10 +289,18 @@ struct ProfileView: View {
 
     /// How many times each kind of urge has been resisted, one line apiece.
     private var typeRowsCard: some View {
-        PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 16) {
-            VStack(spacing: 10) {
-                ForEach(ResistType.allCases) { type in
+        // A divided list, like the settings rows further down, rather than tiles inside a card.
+        PunchyCard(fill: .cardBackground, cornerRadius: 30, padding: 0) {
+            VStack(spacing: 0) {
+                ForEach(Array(ResistType.allCases.enumerated()), id: \.element) { index, type in
                     let resisted = records.filter { $0.type == type && $0.status == .resisted }.count
+
+                    if index > 0 {
+                        Rectangle()
+                            .fill(Color.punchBlack.opacity(0.07))
+                            .frame(height: 1)
+                            .padding(.leading, 66)
+                    }
 
                     HStack(spacing: 12) {
                         TypeIcon(type: type, size: 38)
@@ -320,9 +328,8 @@ struct ProfileView: View {
                                 .foregroundStyle(Color.secondaryInk)
                         }
                     }
-                    .padding(12)
-                    .background(Color.cream)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .padding(.horizontal, 16)
+                    .frame(height: 60)
                     .accessibilityElement(children: .combine)
                 }
             }
@@ -367,7 +374,7 @@ struct ProfileView: View {
             CooldownBoxView()
         } label: {
             SettingsGroup {
-                SettingRow(symbol: "archivebox.fill", tint: Color.softBlockColor(for: .money), title: "冷静箱") {
+                SettingRow(symbol: "archivebox.fill", tint: .cream, title: "冷静箱") {
                     Text("\(pendingRecords.count) 件")
                         .font(.rounded(14, weight: .black))
                         .foregroundStyle(Color.secondaryInk)
@@ -389,7 +396,7 @@ struct ProfileView: View {
 
     private var reminderGroup: some View {
         SettingsGroup {
-            SettingRow(symbol: "bell.fill", tint: .punchYellow, title: "冷静到期提醒") {
+            SettingRow(symbol: "bell.fill", tint: .cream, title: "冷静到期提醒") {
                 Toggle("冷静到期提醒", isOn: Binding(
                     get: { cooldownReminderEnabled },
                     set: { setCooldownReminder($0) }
@@ -401,7 +408,7 @@ struct ProfileView: View {
 
             SettingDivider()
 
-            SettingRow(symbol: "timer", tint: Color.softBlockColor(for: .money), title: "锁屏和灵动岛倒计时", subtitle: "8 小时以内的冷静") {
+            SettingRow(symbol: "timer", tint: .cream, title: "锁屏和灵动岛倒计时", subtitle: "8 小时以内的冷静") {
                 Toggle("锁屏和灵动岛倒计时", isOn: $liveActivityEnabled)
                     .labelsHidden()
                     .tint(Color.punchGreen)
@@ -410,7 +417,7 @@ struct ProfileView: View {
 
             SettingDivider()
 
-            SettingRow(symbol: "calendar", tint: Color.softBlockColor(for: .food), title: "每周小结", subtitle: "周日 20:00") {
+            SettingRow(symbol: "calendar", tint: .cream, title: "每周小结", subtitle: "周日 20:00") {
                 Toggle("每周小结", isOn: Binding(
                     get: { weeklySummaryEnabled },
                     set: { setWeeklySummary($0) }
@@ -427,7 +434,7 @@ struct ProfileView: View {
             NavigationLink {
                 CooldownLengthView { cooldownLengthToken += 1 }
             } label: {
-                SettingRow(symbol: "hourglass", tint: Color.softBlockColor(for: .time), title: "冷静时长", subtitle: cooldownLengthSummary) {
+                SettingRow(symbol: "hourglass", tint: .cream, title: "冷静时长", subtitle: cooldownLengthSummary) {
                     chevron
                 }
             }
@@ -435,7 +442,7 @@ struct ProfileView: View {
 
             SettingDivider()
 
-            SettingRow(symbol: "iphone.radiowaves.left.and.right", tint: Color.softBlockColor(for: .money), title: "震动") {
+            SettingRow(symbol: "iphone.radiowaves.left.and.right", tint: .cream, title: "震动") {
                 Toggle("震动", isOn: $hapticsEnabled)
                     .labelsHidden()
                     .tint(Color.punchGreen)
@@ -452,7 +459,7 @@ struct ProfileView: View {
     private var dataGroup: some View {
         SettingsGroup {
             // The switch is here, on the page itself; what the backup holds and restoring are one step in.
-            SettingRow(symbol: "icloud.fill", tint: Color.softBlockColor(for: .time), title: "iCloud 自动备份", subtitle: cloudBackup.statusText) {
+            SettingRow(symbol: "icloud.fill", tint: .cream, title: "iCloud 自动备份", subtitle: cloudBackup.statusText) {
                 Toggle("iCloud 自动备份", isOn: Binding(
                     get: { cloudBackup.isEnabled },
                     set: { enabled in Task { await cloudBackup.setEnabled(enabled) } }
@@ -467,7 +474,7 @@ struct ProfileView: View {
             NavigationLink {
                 CloudBackupView()
             } label: {
-                SettingRow(symbol: "arrow.clockwise.icloud.fill", tint: Color.softBlockColor(for: .money), title: "备份与恢复") {
+                SettingRow(symbol: "arrow.clockwise.icloud.fill", tint: .cream, title: "备份与恢复") {
                     chevron
                 }
             }
@@ -477,7 +484,7 @@ struct ProfileView: View {
             SettingDivider()
 
             Button(action: exportRecords) {
-                SettingRow(symbol: "square.and.arrow.up.fill", tint: Color.softBlockColor(for: .money), title: "导出记录", subtitle: "\(records.count) 条，表格文件") {
+                SettingRow(symbol: "square.and.arrow.up.fill", tint: .cream, title: "导出记录", subtitle: "\(records.count) 条，表格文件") {
                     chevron
                 }
             }
@@ -489,7 +496,7 @@ struct ProfileView: View {
             Button {
                 isShowingDataPrivacy = true
             } label: {
-                SettingRow(symbol: "lock.shield.fill", tint: .punchYellow, title: "数据与隐私") {
+                SettingRow(symbol: "lock.shield.fill", tint: .cream, title: "数据与隐私") {
                     chevron
                 }
             }
@@ -498,7 +505,7 @@ struct ProfileView: View {
             SettingDivider()
 
             Button(action: onShowWelcome) {
-                SettingRow(symbol: "book.fill", tint: Color.softBlockColor(for: .food), title: "再看一遍引导") {
+                SettingRow(symbol: "book.fill", tint: .cream, title: "再看一遍引导") {
                     chevron
                 }
             }
@@ -510,7 +517,7 @@ struct ProfileView: View {
             NavigationLink {
                 AboutView()
             } label: {
-                SettingRow(symbol: "info.circle.fill", tint: Color.softBlockColor(for: .time), title: "关于与反馈") {
+                SettingRow(symbol: "info.circle.fill", tint: .cream, title: "关于与反馈") {
                     Text(AboutView.versionText)
                         .font(.rounded(14, weight: .black))
                         .foregroundStyle(Color.secondaryInk)
@@ -1112,7 +1119,7 @@ private struct AboutView: View {
                     SettingsGroup {
                         if let mailURL = Self.mailURL {
                             Link(destination: mailURL) {
-                                SettingRow(symbol: "envelope.fill", tint: Color.softBlockColor(for: .food), title: "发邮件反馈", subtitle: Self.feedbackEmail) {
+                                SettingRow(symbol: "envelope.fill", tint: .cream, title: "发邮件反馈", subtitle: Self.feedbackEmail) {
                                     Image(systemName: "arrow.up.right")
                                         .font(.rounded(13, weight: .black))
                                         .foregroundStyle(Color.punchBlack)
@@ -1125,7 +1132,7 @@ private struct AboutView: View {
 
                         if let supportURL = Self.supportURL {
                             Link(destination: supportURL) {
-                                SettingRow(symbol: "bubble.left.and.bubble.right.fill", tint: .punchYellow, title: "使用帮助与反馈") {
+                                SettingRow(symbol: "bubble.left.and.bubble.right.fill", tint: .cream, title: "使用帮助与反馈") {
                                     Image(systemName: "arrow.up.right")
                                         .font(.rounded(13, weight: .black))
                                         .foregroundStyle(Color.punchBlack)
@@ -1137,7 +1144,7 @@ private struct AboutView: View {
 
                         if let privacyURL = Self.privacyURL {
                             Link(destination: privacyURL) {
-                                SettingRow(symbol: "hand.raised.fill", tint: Color.softBlockColor(for: .money), title: "隐私政策") {
+                                SettingRow(symbol: "hand.raised.fill", tint: .cream, title: "隐私政策") {
                                     Image(systemName: "arrow.up.right")
                                         .font(.rounded(13, weight: .black))
                                         .foregroundStyle(Color.punchBlack)

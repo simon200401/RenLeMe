@@ -8,6 +8,9 @@ struct HistoryRecordsView: View {
     @State private var typeFilter: RecordTypeFilter = .all
     @State private var statusFilter: RecordStatusFilter = .all
     @Namespace private var detailZoom
+    @State private var recordToDelete: ResistRecord?
+    @State private var isConfirmingDelete = false
+    @State private var deleteFailed = false
 
     private var filteredRecords: [ResistRecord] {
         records.filter { record in
@@ -40,8 +43,8 @@ struct HistoryRecordsView: View {
                                 .buttonStyle(.plain)
                                 .contextMenu {
                                     Button(role: .destructive) {
-                                        LocalImageStore.delete(record.customImagePath)
-                                        modelContext.delete(record)
+                                        recordToDelete = record
+                                        isConfirmingDelete = true
                                     } label: {
                                         Label("删除记录", systemImage: "trash")
                                     }
@@ -58,6 +61,32 @@ struct HistoryRecordsView: View {
         }
         .navigationTitle("历史记录")
         .navigationBarTitleDisplayMode(.inline)
+        .alert("删除这条记录？", isPresented: $isConfirmingDelete) {
+            Button("删除", role: .destructive) { deleteSelectedRecord() }
+            Button("取消", role: .cancel) { recordToDelete = nil }
+        } message: {
+            Text("「\(recordToDelete?.title ?? "这条记录")」删除后不可恢复，对应资产和目标进度会同步更新。")
+        }
+        .alert("删除失败，请重试", isPresented: $deleteFailed) {
+            Button("知道了", role: .cancel) {}
+        }
+    }
+
+    /// The same as deleting from the results page: the reminder goes with the record.
+    private func deleteSelectedRecord() {
+        guard let record = recordToDelete else { return }
+        let id = record.id
+        let imagePath = record.customImagePath
+        modelContext.delete(record)
+        do {
+            try modelContext.save()
+            CooldownCoordinator.cancel(recordId: id)
+            LocalImageStore.delete(imagePath)
+        } catch {
+            modelContext.rollback()
+            deleteFailed = true
+        }
+        recordToDelete = nil
     }
 
     private var filters: some View {
