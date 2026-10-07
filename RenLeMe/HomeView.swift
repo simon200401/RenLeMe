@@ -87,7 +87,20 @@ struct HomeView: View {
                     .padding(.horizontal, 18)
                     .padding(.top, 6)
                     .padding(.bottom, 10)
-                    .background(Color.appBackground)
+                    .background(alignment: .top) {
+                        ZStack(alignment: .top) {
+                            // Reaches down behind the tab bar, so nothing shows through below the line.
+                            Color.appBackground.ignoresSafeArea(edges: .bottom)
+                            // Content scrolling underneath fades out instead of being cut off in a line.
+                            LinearGradient(
+                                colors: [Color.appBackground.opacity(0), Color.appBackground],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                            .frame(height: 40)
+                            .offset(y: -40)
+                            .allowsHitTesting(false)
+                        }
+                    }
             }
         }
         .navigationTitle("忍了么")
